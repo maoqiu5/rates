@@ -1,0 +1,1519 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>境外运价</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    html, body { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; }
+    body { background: #f6f7f9; color: #18202a; }
+    .app-shell { min-height: 100%; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+    .app-shell.sidebar-collapsed { grid-template-columns: 58px minmax(0, 1fr); }
+    .sidebar { padding: 14px; background: #111827; color: #fff; display: grid; align-content: start; gap: 12px; }
+    .sidebar-toggle { width: 100%; border: 1px solid rgba(255,255,255,.18); border-radius: 8px; background: rgba(255,255,255,.08); color: #fff; padding: 8px 10px; font: inherit; cursor: pointer; }
+    .brand { display: grid; gap: 4px; padding: 4px 2px 10px; border-bottom: 1px solid rgba(255,255,255,.16); }
+    .brand strong { font-size: 17px; }
+    .brand span { font-size: 12px; color: rgba(255,255,255,.72); }
+    .nav-btn { width: 100%; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; align-items: center; text-align: left; border: 1px solid rgba(255,255,255,.14); border-radius: 8px; background: rgba(255,255,255,.06); color: #fff; padding: 10px 11px; font: inherit; font-size: 14px; cursor: pointer; }
+    .nav-btn[aria-pressed="true"] { background: #0f766e; border-color: #0f766e; }
+    .nav-btn span { display: block; }
+    .nav-icon { display: grid !important; place-items: center; width: 24px; height: 24px; color: #fff; font-size: 16px; }
+    .nav-text { min-width: 0; }
+    .nav-label { color: #fff; font-size: 14px; font-weight: 650; }
+    .nav-hint { margin-top: 3px; color: rgba(255,255,255,.72); font-size: 12px; }
+    .sidebar-collapsed .brand span, .sidebar-collapsed .brand strong, .sidebar-collapsed .nav-text { display: none; }
+    .sidebar-collapsed .sidebar { padding: 12px 8px; }
+    .sidebar-collapsed .nav-btn { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 10px 6px; }
+    .sidebar-collapsed .sidebar-toggle { text-align: center; padding: 10px 6px; }
+    .workspace { min-width: 0; display: grid; grid-template-columns: minmax(390px, 30vw) minmax(620px, 1fr); min-height: 100vh; }
+    .control-pane { min-width: 0; padding: 10px 14px; display: grid; gap: 8px; align-content: start; background: #fff; border-right: 1px solid #d8dde5; overflow: auto; }
+    .module-panel { display: none; gap: 8px; }
+    .module-panel.active { display: grid; }
+    .topline { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .query-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 10px; border: 1px solid #d8dde5; border-radius: 8px; background: #f9fafb; }
+    .query-bar label { font-size: 13px; color: #4c5968; font-weight: 650; }
+    .query-bar input, .query-bar select { height: 30px; min-width: 180px; border: 1px solid #cfd6df; border-radius: 6px; padding: 0 9px; font: inherit; font-size: 13px; background: #fff; }
+    .query-bar button { height: 32px; border: 1px solid #1f2937; border-radius: 6px; background: #1f2937; color: #fff; padding: 0 12px; font: inherit; font-size: 13px; cursor: pointer; }
+    .query-bar button:disabled { opacity: .58; cursor: not-allowed; }
+    .query-status { font-size: 13px; color: #4c5968; min-height: 1em; }
+    .query-status.error { color: #b91c1c; }
+    .map-provider { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 10px; border: 1px solid #d8dde5; border-radius: 8px; background: #f9fafb; }
+    .map-provider strong { font-size: 13px; color: #4c5968; }
+    .map-provider button { height: 30px; border: 1px solid #cfd6df; border-radius: 6px; background: #fff; color: #18202a; padding: 0 10px; font: inherit; font-size: 13px; cursor: pointer; }
+    .map-provider button[aria-pressed="true"] { background: #0f766e; border-color: #0f766e; color: #fff; }
+    h1 { margin: 0; font-size: 18px; font-weight: 650; }
+    .stats, .countries { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13px; color: #4c5968; }
+    .stats strong { color: #18202a; }
+    .pill { display: inline-flex; gap: 5px; align-items: center; padding: 4px 8px; border: 1px solid #d8dde5; border-radius: 999px; background: #f9fafb; }
+    .pill.removed { color: #991b1b; background: #fff1f2; border-color: #fecdd3; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+    .route-panel { display: grid; gap: 7px; padding: 9px 10px; border: 1px solid #d8dde5; border-radius: 8px; background: #f9fafb; }
+    .truck-panel { display: grid; gap: 8px; padding: 9px 10px; border: 1px solid #d8dde5; border-radius: 8px; background: #f9fafb; }
+    .truck-head { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+    .truck-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .truck-form input { flex: 1 1 100%; min-width: 220px; height: 38px; border: 1px solid #cfd6df; border-radius: 6px; padding: 0 12px; font: inherit; font-size: 15px; background: #fff; }
+    .truck-form label { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: #4c5968; font-weight: 650; }
+    .truck-form select { height: 34px; min-width: 170px; border: 1px solid #cfd6df; border-radius: 6px; padding: 0 9px; font: inherit; font-size: 13px; background: #fff; }
+    .truck-form button { height: 38px; border: 1px solid #0f766e; border-radius: 6px; background: #0f766e; color: #fff; padding: 0 14px; font: inherit; font-size: 15px; font-weight: 650; cursor: pointer; }
+    .truck-form button:disabled { opacity: .58; cursor: not-allowed; }
+    .truck-station-group { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .truck-station-group span { font-size: 13px; color: #4c5968; font-weight: 650; }
+    .truck-station-group button { height: 30px; border: 1px solid #cfd6df; border-radius: 6px; background: #fff; color: #18202a; padding: 0 9px; font-size: 13px; font-weight: 650; }
+    .truck-station-group button[aria-pressed="true"] { background: #0f766e; border-color: #0f766e; color: #fff; }
+    .truck-status { font-size: 13px; color: #4c5968; }
+    .truck-status.error { color: #b91c1c; }
+    .truck-market-reference { display: none; padding: 8px 9px; border: 1px solid #d8dde5; border-radius: 6px; background: #fff; color: #4c5968; font-size: 12px; line-height: 1.45; }
+    .truck-market-reference.active { display: block; }
+    .truck-market-reference b { color: #18202a; }
+    .truck-freight-breakdown { display: none; padding: 8px 9px; border: 1px solid #d8dde5; border-radius: 6px; background: #fff; font-size: 12px; color: #4c5968; }
+    .truck-freight-breakdown.active { display: grid; gap: 6px; }
+    .truck-freight-breakdown strong { color: #18202a; }
+    .truck-breakdown-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 8px; }
+    .truck-breakdown-grid span { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid #eef1f4; padding-top: 5px; }
+    .truck-breakdown-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .truck-breakdown-actions button, .market-filter select { height: 28px; border: 1px solid #cfd6df; border-radius: 6px; background: #fff; color: #18202a; padding: 0 8px; font: inherit; font-size: 12px; cursor: pointer; }
+    .truck-copy-status { color: #64748b; }
+    .market-filter { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; font-size: 12px; color: #4c5968; }
+    .market-table { table-layout: fixed; min-width: 0; font-size: 11.5px; }
+    .market-table th, .market-table td { padding: 7px 4px; vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
+    .market-table th:nth-child(1), .market-table td:nth-child(1) { width: 29%; }
+    .market-table th:nth-child(2), .market-table td:nth-child(2) { width: 21%; }
+    .market-table th:nth-child(3), .market-table td:nth-child(3) { width: 18%; text-align: right; }
+    .market-table th:nth-child(4), .market-table td:nth-child(4) { width: 32%; }
+    .truck-table-wrap { overflow-x: visible; }
+    .route-head { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+    .route-head strong { font-size: 14px; }
+    .route-text { color: #18202a; font-size: 13px; overflow-wrap: anywhere; }
+    .route-table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 460px; font-size: 12px; }
+    th, td { text-align: left; padding: 8px 7px; border-top: 1px solid #e1e5ea; white-space: nowrap; }
+    th { color: #4c5968; font-weight: 650; }
+    .truck-table { table-layout: fixed; min-width: 0; font-size: 11.5px; }
+    .truck-table th, .truck-table td { padding: 7px 4px; vertical-align: top; }
+    .truck-table th:nth-child(1), .truck-table td:nth-child(1) { width: 24px; text-align: center; color: #64748b; }
+    .truck-table th:nth-child(2), .truck-table td:nth-child(2) { width: 36%; white-space: normal; overflow-wrap: anywhere; }
+    .truck-table th:nth-child(3), .truck-table td:nth-child(3) { width: 60px; text-align: right; }
+    .truck-table th:nth-child(4), .truck-table td:nth-child(4) { width: 52px; text-align: right; }
+    .truck-table th:nth-child(5), .truck-table td:nth-child(5) { width: 70px; text-align: right; }
+    .truck-table b { display: block; margin-bottom: 2px; line-height: 1.25; }
+    .truck-city { display: block; color: #64748b; font-size: 11px; line-height: 1.25; }
+    .truck-metric { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    #truck-distance-results tr { cursor: pointer; }
+    #truck-distance-results tr.active-route td { background: #e6f4ef; }
+    .rail-panel { display: grid; gap: 10px; padding: 10px; border: 1px solid #d8dde5; border-radius: 8px; background: #f9fafb; }
+    .rail-head { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+    .rail-head strong { font-size: 14px; }
+    .rail-head span, .rail-status, .rail-note { font-size: 13px; color: #4c5968; }
+    .rail-status.error { color: #b91c1c; }
+    .rail-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; align-items: end; }
+    .rail-field { display: grid; gap: 4px; min-width: 0; font-size: 13px; color: #4c5968; font-weight: 650; }
+    .rail-field input, .rail-field select { width: 100%; min-width: 0; height: 34px; border: 1px solid #cfd6df; border-radius: 6px; padding: 0 9px; font: inherit; font-size: 13px; background: #fff; box-sizing: border-box; }
+    .rail-field.hidden { display: none; }
+    .rail-options { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .rail-option { display: flex; gap: 7px; align-items: center; min-height: 32px; padding: 6px 8px; border: 1px solid #d8dde5; border-radius: 6px; background: #fff; font-size: 13px; color: #18202a; }
+    .rail-option.hidden { display: none; }
+    .rail-option input { margin: 0; }
+    .rail-form button { height: 38px; border: 1px solid #0f766e; border-radius: 6px; background: #0f766e; color: #fff; padding: 0 14px; font: inherit; font-size: 15px; font-weight: 650; cursor: pointer; }
+    .rail-form button:disabled { opacity: .58; cursor: not-allowed; }
+    .rail-result { display: grid; gap: 8px; padding: 10px; border: 1px solid #d8dde5; border-radius: 8px; background: #fff; }
+    .rail-result.hidden { display: none; }
+    .rail-total { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+    .rail-total strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+    .rail-total span { font-size: 13px; color: #4c5968; }
+    .rail-breakdown { min-width: 0; font-size: 12px; }
+    .rail-breakdown th:nth-child(2), .rail-breakdown td:nth-child(2), .rail-breakdown th:nth-child(3), .rail-breakdown td:nth-child(3) { text-align: right; }
+    .rail-meta { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; color: #4c5968; }
+    .rail-analytics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .rail-metric { padding: 8px; border: 1px solid #d8dde5; border-radius: 6px; background: #f9fafb; }
+    .rail-metric span { display: block; color: #64748b; font-size: 11px; margin-bottom: 3px; }
+    .rail-metric strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+    .rail-observed { display: grid; gap: 6px; padding: 9px; border: 1px solid #d8dde5; border-radius: 6px; background: #f9fafb; font-size: 12px; color: #18202a; }
+    .rail-observed.hidden { display: none; }
+    .rail-observed strong { font-size: 13px; }
+    .rail-observed-path { overflow-wrap: anywhere; line-height: 1.45; }
+    .rail-strategy { display: grid; gap: 6px; padding: 9px; border: 1px solid #d8dde5; border-radius: 6px; background: #f9fafb; font-size: 12px; color: #18202a; }
+    .rail-strategy.hidden { display: none; }
+    .rail-strategy-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .rail-strategy-item { display: grid; gap: 2px; padding: 7px 8px; border: 1px solid #d8dde5; border-radius: 6px; background: #fff; }
+    .rail-strategy-item span { color: #4c5968; overflow-wrap: anywhere; }
+    .rail-map-label { color: #1f2937; background: rgba(255,255,255,.96); border: 1px solid #cfd6df; border-radius: 4px; padding: 2px 5px; font-size: 12px; font-weight: 650; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,.16); }
+    .rail-placeholder { display: grid; place-items: center; height: 100%; min-height: 420px; padding: 24px; box-sizing: border-box; background: #eef3f7; color: #4c5968; }
+    .rail-placeholder-inner { max-width: 620px; display: grid; gap: 10px; }
+    .rail-placeholder h2 { margin: 0; color: #18202a; font-size: 22px; }
+    .rail-placeholder p { margin: 0; line-height: 1.5; }
+    .map-pane { min-width: 0; min-height: 100vh; }
+    #map { width: 100%; height: 100%; min-height: 420px; background: #e7edf3; }
+    .status, .legend, .removed-box { padding: 8px 10px; background: rgba(255,255,255,.96); border: 1px solid #cfd6df; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.12); font-size: 13px; line-height: 1.35; }
+    .removed-box { max-width: 360px; color: #4c5968; }
+    .removed-box b { color: #991b1b; }
+    .legend div { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+    .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.24); flex: none; }
+    .swatch.port { border-radius: 3px; background: #f97316; }
+    .swatch.border { border-radius: 2px; background: #0891b2; transform: rotate(45deg); }
+    .cn { background: #d7263d; } .kz { background: #2563eb; } .ru { background: #7c3aed; } .by { background: #059669; } .pl { background: #ea580c; }
+    .start { background: #138a36; } .end { background: #111827; }
+    .point-popup, .port-popup, .border-popup { min-width: 245px; max-width: 340px; }
+    .point-popup h2, .port-popup h2, .border-popup h2 { margin: 0 0 6px; font-size: 15px; }
+    .point-popup p, .port-popup p, .border-popup p { margin: 4px 0; font-size: 13px; }
+    .geo-status { margin-top: 7px; padding-top: 7px; border-top: 1px solid #d8dde5; color: #4c5968; }
+    .port-label { color: #7c2d12; background: rgba(255,255,255,.95); border: 1px solid #fed7aa; border-radius: 4px; padding: 2px 5px; font-size: 12px; font-weight: 650; white-space: nowrap; }
+    .border-label { color: #155e75; background: rgba(255,255,255,.95); border: 1px solid #a5f3fc; border-radius: 4px; padding: 2px 5px; font-size: 12px; font-weight: 650; white-space: nowrap; }
+    .truck-distance-label { color: #0f3b35; background: rgba(255,255,255,.96); border: 1px solid #99d1c5; border-radius: 4px; padding: 2px 5px; font-size: 12px; font-weight: 650; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,.16); }
+    .truck-station-icon, .truck-destination-icon, .truck-return-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #fff; font-size: 15px; font-weight: 800; border: 3px solid #fff; box-shadow: 0 2px 9px rgba(15,23,42,.35); }
+    .truck-station-icon { background: #0f766e; }
+    .truck-destination-icon { background: #dc2626; }
+    .truck-return-icon { background: #2563eb; }
+    @media (max-width: 760px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .app-shell.sidebar-collapsed { grid-template-columns: 1fr; }
+      .sidebar { grid-template-columns: 1fr 1fr; }
+      .brand { grid-column: 1 / -1; }
+      .workspace { grid-template-columns: 1fr; grid-template-rows: auto minmax(420px, 1fr); }
+      .control-pane { padding: 9px 11px; border-right: 0; border-bottom: 1px solid #d8dde5; max-height: 52vh; }
+      .map-pane { min-height: 48vh; }
+      .stats, .countries { font-size: 12px; }
+      .route-panel, .truck-panel { padding: 8px; }
+      .rail-form, .rail-options { grid-template-columns: 1fr; }
+      .rail-analytics { grid-template-columns: 1fr; }
+      .rail-total strong { font-size: 19px; }
+      .truck-table thead { display: none; }
+      .truck-table, .truck-table tbody, .truck-table tr, .truck-table td { display: block; width: 100%; }
+      .truck-table tr { padding: 8px 0; border-top: 1px solid #e1e5ea; }
+      .truck-table td { border-top: 0; padding: 3px 0; text-align: left !important; }
+      .truck-table td:first-child { display: none; }
+      .truck-table td:nth-child(2) { width: 100%; }
+      .truck-table td:nth-child(n+3) { display: inline-block; width: calc(33.333% - 4px); }
+      .truck-table td:nth-child(n+3)::before { content: attr(data-label); display: block; margin-bottom: 2px; color: #64748b; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="模块导航">
+      <div class="brand"><strong>境外运价</strong><span>铁路 / 卡车 / 市场参考</span></div>
+      <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="折叠菜单" aria-expanded="true">☰</button>
+      <button class="nav-btn" type="button" data-module="truck" aria-pressed="true" title="卡车距离"><span class="nav-icon" aria-hidden="true">↔</span><span class="nav-text"><span class="nav-label">卡车距离</span><span class="nav-hint">地址到站点公路距离</span></span></button>
+      <button class="nav-btn" type="button" data-module="rail" aria-pressed="false" title="铁路运价"><span class="nav-icon" aria-hidden="true">▤</span><span class="nav-text"><span class="nav-label">铁路运价</span><span class="nav-hint">俄线公共报价查价</span></span></button>
+      <button class="nav-btn" type="button" data-module="market" aria-pressed="false" title="市场参考"><span class="nav-icon" aria-hidden="true">€</span><span class="nav-text"><span class="nav-label">市场参考</span><span class="nav-hint">燃油/指数/报价源</span></span></button>
+    </aside>
+    <main class="workspace">
+      <div class="control-pane">
+        <div class="map-provider" aria-label="地图底图">
+          <strong>底图</strong>
+          <button type="button" data-map-provider="esri-street" aria-pressed="true">Esri街道</button>
+          <button type="button" data-map-provider="esri-imagery" aria-pressed="false">Esri卫星</button>
+          <button type="button" data-map-provider="openstreetmap" aria-pressed="false">OSM备用</button>
+          <button type="button" id="cache-map-tiles">缓存当前地图</button>
+          <span class="truck-status" id="tile-cache-status"></span>
+        </div>
+        <section class="module-panel active" id="module-truck" aria-label="卡车派送距离实时查询">
+          <div class="truck-panel">
+            <div class="truck-head"><strong>卡车派送距离实时查询</strong><span id="truck-nearest">输入地址后计算各站点距离</span></div>
+            <form class="truck-form" id="truck-distance-form">
+              <input id="truck-address-input" value="JUD. BRASOV, ORS.GHIMBAV, Str. Hermann Oberth, Nr.23, Hala5, locatia 1, Romania" autocomplete="off" placeholder="输入收货地址，或输入坐标：45.6877, 25.51944">
+              <label for="truck-return-station">还空地
+                <select id="truck-return-station">
+                  <option value="">不还空</option>
+                </select>
+              </label>
+              <div class="truck-station-group" id="truck-station-group" role="group" aria-label="站点区域">
+                <span>站点区域</span>
+                <button type="button" data-station-group="auto" aria-pressed="true">自动</button>
+                <button type="button" data-station-group="europe" aria-pressed="false">欧洲</button>
+                <button type="button" data-station-group="central_asia" aria-pressed="false">中亚</button>
+                <button type="button" data-station-group="russia" aria-pressed="false">俄罗斯</button>
+                <button type="button" data-station-group="belarus" aria-pressed="false">白罗斯</button>
+              </div>
+              <button id="truck-distance-button" type="submit">计算距离</button>
+              <span class="truck-status" id="truck-distance-status"></span>
+            </form>
+            <div class="truck-market-reference" id="truck-market-reference"></div>
+            <div class="truck-freight-breakdown" id="truck-freight-breakdown"></div>
+            <div class="truck-table-wrap"><table class="truck-table"><thead><tr><th>#</th><th>站点</th><th>公里</th><th>时间</th><th>卡车运费</th></tr></thead><tbody id="truck-distance-results"></tbody></table></div>
+          </div>
+        </section>
+        <section class="module-panel" id="module-market" aria-label="卡车市场参考">
+          <div class="truck-panel">
+            <div class="truck-head"><strong>市场参考</strong><span id="market-reference-status">读取公开来源与待接入报价源</span></div>
+            <div class="truck-market-reference active" id="market-reference-summary">加载中...</div>
+            <label class="market-filter" for="market-reference-filter">类型筛选
+              <select id="market-reference-filter">
+                <option value="">全部</option>
+              </select>
+            </label>
+            <div class="truck-table-wrap"><table class="market-table"><thead><tr><th>参考源</th><th>类型</th><th>数值</th><th>说明</th></tr></thead><tbody id="market-reference-results"></tbody></table></div>
+          </div>
+        </section>
+        <section class="module-panel" id="module-rail" aria-label="俄线铁路运价计算">
+          <div class="rail-panel">
+            <div class="rail-head"><strong>俄线铁路运价计算</strong><span id="rail-rate-meta">报价数据加载中...</span></div>
+            <form class="rail-form" id="rail-rate-form">
+              <label class="rail-field" for="rail-pricing-mode">计价方式
+                <select id="rail-pricing-mode">
+                  <option value="prediction">路线公里预测</option>
+                  <option value="official">公共报价单</option>
+                </select>
+              </label>
+              <label class="rail-field" for="rail-border-crossing">换装口岸
+                <select id="rail-border-crossing" required></select>
+              </label>
+              <label class="rail-field" for="rail-destination">目的站
+                <input id="rail-destination" list="rail-destination-list" autocomplete="off" required>
+                <datalist id="rail-destination-list"></datalist>
+              </label>
+              <label class="rail-field" for="rail-station-code">站编
+                <input id="rail-station-code" list="rail-station-code-list" autocomplete="off">
+                <datalist id="rail-station-code-list"></datalist>
+              </label>
+              <label class="rail-field" for="rail-container-type">箱型
+                <select id="rail-container-type" required></select>
+              </label>
+              <label class="rail-field" for="rail-ownership">运输类型
+                <select id="rail-ownership" required></select>
+              </label>
+              <label class="rail-field" for="rail-quantity">柜量
+                <input id="rail-quantity" type="number" min="1" step="1" value="1" required>
+              </label>
+              <label class="rail-field hidden" for="rail-box-fee" id="rail-box-fee-field">箱使费/柜 USD
+                <input id="rail-box-fee" type="number" min="0" step="1" value="0">
+              </label>
+              <label class="rail-field" for="rail-transit-count" id="rail-transit-count-field">转关票数
+                <input id="rail-transit-count" type="number" min="1" step="1" value="1">
+              </label>
+              <div class="rail-options" aria-label="附加选项">
+                <label class="rail-option" id="rail-option-review"><input id="rail-special-review" type="checkbox"> 特别审单代理</label>
+                <label class="rail-option" id="rail-option-erlian"><input id="rail-erlian-under55" type="checkbox"> 二连少于55x40HQ</label>
+                <label class="rail-option" id="rail-option-shushary"><input id="rail-shushary-voskhod" type="checkbox"> Shushary选择Voskhod场站</label>
+                <label class="rail-option" id="rail-option-belarus"><input id="rail-belarus-bts" type="checkbox"> 白俄段指定BTS服务</label>
+              </div>
+              <button id="rail-calculate-button" type="submit">计算运价</button>
+              <span class="rail-status" id="rail-rate-status"></span>
+            </form>
+            <div class="rail-result hidden" id="rail-result">
+              <div class="rail-total"><span id="rail-route-summary">-</span><strong id="rail-total-usd">$0</strong></div>
+              <div class="rail-analytics" id="rail-analytics"></div>
+              <div class="rail-observed hidden" id="rail-observed-route"></div>
+              <div class="rail-strategy hidden" id="rail-pricing-strategy"></div>
+              <table class="rail-breakdown"><thead><tr><th>费用项</th><th>单柜 USD</th><th>合计 USD</th></tr></thead><tbody id="rail-breakdown-body"></tbody></table>
+              <div class="rail-meta" id="rail-result-meta"></div>
+              <div class="rail-note" id="rail-rate-notes"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="map-pane"><div id="map"><div style="padding:16px;color:#4c5968;">地图正在加载...</div></div></div>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="./rail-calculator.js?v=20260725-rates-full"></script>
+  <script>
+    const samplePoints = [{"idx":1,"time":"2026-06-23 00:44:54","lat":31.439426,"lon":104.65245,"battery":89.59,"speed":"-","country":"中国","countryCode":"CN"},{"idx":2,"time":"2026-06-23 02:46:07","lat":32.193851,"lon":105.167793,"battery":89.73,"speed":"-","country":"中国","countryCode":"CN"},{"idx":3,"time":"2026-06-23 04:44:59","lat":32.452625,"lon":105.803871,"battery":89.59,"speed":"-","country":"中国","countryCode":"CN"},{"idx":4,"time":"2026-06-23 06:44:53","lat":33.366611,"lon":104.971504,"battery":89.73,"speed":"-","country":"中国","countryCode":"CN"},{"idx":5,"time":"2026-06-23 08:44:54","lat":34.485694,"lon":104.083839,"battery":89.46,"speed":"-","country":"中国","countryCode":"CN"},{"idx":6,"time":"2026-06-23 10:44:54","lat":35.25399,"lon":104.278358,"battery":89.73,"speed":"-","country":"中国","countryCode":"CN"},{"idx":7,"time":"2026-06-23 12:44:55","lat":35.975307,"lon":104.146883,"battery":89.32,"speed":"-","country":"中国","countryCode":"CN"},{"idx":8,"time":"2026-06-23 14:45:01","lat":36.145442,"lon":103.62384,"battery":88.51,"speed":"-","country":"中国","countryCode":"CN"},{"idx":9,"time":"2026-06-23 16:43:59","lat":36.421257,"lon":103.397476,"battery":88.78,"speed":"-","country":"中国","countryCode":"CN"},{"idx":10,"time":"2026-06-23 18:43:55","lat":37.720692,"lon":102.744937,"battery":89.46,"speed":"-","country":"中国","countryCode":"CN"},{"idx":11,"time":"2026-06-23 20:43:57","lat":37.782955,"lon":102.790008,"battery":89.73,"speed":"-","country":"中国","countryCode":"CN"},{"idx":12,"time":"2026-06-23 22:43:57","lat":37.863742,"lon":102.676269,"battery":89.86,"speed":"-","country":"中国","countryCode":"CN"},{"idx":13,"time":"2026-06-24 00:43:59","lat":38.47251,"lon":101.905058,"battery":89.73,"speed":"-","country":"中国","countryCode":"CN"},{"idx":14,"time":"2026-06-24 02:44:00","lat":38.831334,"lon":100.890204,"battery":89.46,"speed":"-","country":"中国","countryCode":"CN"},{"idx":15,"time":"2026-06-24 04:44:00","lat":39.328651,"lon":99.244017,"battery":89.73,"speed":"-","country":"中国","countryCode":"CN"},{"idx":16,"time":"2026-06-24 06:44:01","lat":39.763069,"lon":98.254714,"battery":89.73,"speed":"-","country":"中国","countryCode":"CN"},{"idx":17,"time":"2026-06-24 08:44:00","lat":39.814208,"lon":97.910377,"battery":89.46,"speed":"-","country":"中国","countryCode":"CN"},{"idx":18,"time":"2026-06-24 10:44:06","lat":40.652366,"lon":96.501121,"battery":89.19,"speed":"-","country":"中国","countryCode":"CN"},{"idx":19,"time":"2026-06-24 12:43:04","lat":41.053184,"lon":95.606781,"battery":89.59,"speed":"-","country":"中国","countryCode":"CN"},{"idx":20,"time":"2026-06-24 14:43:00","lat":41.102088,"lon":95.501327,"battery":89.46,"speed":"-","country":"中国","countryCode":"CN"},{"idx":21,"time":"2026-06-24 16:43:01","lat":41.578693,"lon":94.489692,"battery":89.19,"speed":"-","country":"中国","countryCode":"CN"},{"idx":22,"time":"2026-06-24 18:43:02","lat":42.128124,"lon":94.125534,"battery":88.38,"speed":"-","country":"中国","countryCode":"CN"},{"idx":23,"time":"2026-06-24 20:42:53","lat":42.688676,"lon":93.652455,"battery":88.65,"speed":"-","country":"中国","countryCode":"CN"},{"idx":24,"time":"2026-06-24 22:42:54","lat":42.753143,"lon":93.588218,"battery":89.05,"speed":"-","country":"中国","countryCode":"CN"},{"idx":25,"time":"2026-06-25 02:42:59","lat":43.263416,"lon":92.305702,"battery":88.92,"speed":"-","country":"中国","countryCode":"CN"},{"idx":26,"time":"2026-06-25 04:43:05","lat":43.234983,"lon":90.762285,"battery":88.78,"speed":"-","country":"中国","countryCode":"CN"},{"idx":27,"time":"2026-06-25 06:43:01","lat":43.15192,"lon":89.325332,"battery":88.51,"speed":"-","country":"中国","countryCode":"CN"},{"idx":28,"time":"2026-06-25 08:41:59","lat":43.385837,"lon":88.173217,"battery":88.51,"speed":"-","country":"中国","countryCode":"CN"},{"idx":29,"time":"2026-06-25 10:41:54","lat":43.582202,"lon":87.808738,"battery":88.38,"speed":"-","country":"中国","countryCode":"CN"},{"idx":30,"time":"2026-06-25 12:41:56","lat":43.798774,"lon":87.547569,"battery":88.24,"speed":"-","country":"中国","countryCode":"CN"},{"idx":31,"time":"2026-06-25 14:41:58","lat":44.297126,"lon":85.76654,"battery":88.24,"speed":"-","country":"中国","countryCode":"CN"},{"idx":32,"time":"2026-06-25 16:42:05","lat":44.402271,"lon":84.257003,"battery":86.62,"speed":"-","country":"中国","countryCode":"CN"},{"idx":33,"time":"2026-06-25 18:42:02","lat":44.945018,"lon":82.638061,"battery":87.43,"speed":"-","country":"中国","countryCode":"CN"},{"idx":34,"time":"2026-06-25 20:41:59","lat":45.163078,"lon":82.57202,"battery":88.11,"speed":"-","country":"中国","countryCode":"CN"},{"idx":35,"time":"2026-06-25 22:41:59","lat":45.163078,"lon":82.57202,"battery":88.11,"speed":"-","country":"中国","countryCode":"CN"},{"idx":36,"time":"2026-06-26 00:42:00","lat":45.14965,"lon":82.556321,"battery":88.24,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":37,"time":"2026-06-26 02:42:06","lat":45.14965,"lon":82.556321,"battery":88.24,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":38,"time":"2026-06-26 04:41:03","lat":45.14965,"lon":82.556321,"battery":88.38,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":39,"time":"2026-06-26 06:40:58","lat":45.14965,"lon":82.556321,"battery":88.38,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":40,"time":"2026-06-26 08:40:59","lat":45.14965,"lon":82.556321,"battery":87.84,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":41,"time":"2026-06-26 10:41:01","lat":45.14965,"lon":82.556321,"battery":87.43,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":42,"time":"2026-06-26 12:40:53","lat":45.14965,"lon":82.556321,"battery":87.03,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":43,"time":"2026-06-26 14:40:53","lat":45.14965,"lon":82.556321,"battery":86.89,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":44,"time":"2026-06-26 16:40:54","lat":45.14965,"lon":82.556321,"battery":86.76,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":45,"time":"2026-06-26 18:40:56","lat":45.14965,"lon":82.556321,"battery":86.76,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":46,"time":"2026-06-26 20:40:58","lat":45.14965,"lon":82.556321,"battery":86.76,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":47,"time":"2026-06-26 22:41:03","lat":45.14965,"lon":82.556321,"battery":86.89,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":48,"time":"2026-06-27 00:40:02","lat":45.16201,"lon":82.567199,"battery":87.03,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":49,"time":"2026-06-27 02:40:01","lat":45.16201,"lon":82.567199,"battery":87.3,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":50,"time":"2026-06-27 04:40:02","lat":45.16201,"lon":82.567199,"battery":87.57,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":51,"time":"2026-06-27 06:39:53","lat":45.16201,"lon":82.567199,"battery":87.57,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":52,"time":"2026-06-27 08:40:04","lat":45.158931,"lon":82.557159,"battery":86.89,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":53,"time":"2026-06-27 10:39:54","lat":45.158931,"lon":82.557159,"battery":86.76,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":54,"time":"2026-06-27 12:39:55","lat":45.158931,"lon":82.557159,"battery":86.49,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":55,"time":"2026-06-27 14:39:58","lat":45.158931,"lon":82.557159,"battery":86.22,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":56,"time":"2026-06-27 16:39:58","lat":45.158931,"lon":82.557159,"battery":85.54,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":57,"time":"2026-06-27 18:40:04","lat":45.158931,"lon":82.557159,"battery":85.41,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":58,"time":"2026-06-27 20:39:03","lat":45.024612,"lon":82.586425,"battery":85.81,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":59,"time":"2026-06-28 00:39:04","lat":45.233377,"lon":82.518154,"battery":85.0,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":60,"time":"2026-06-28 02:39:09","lat":45.398052,"lon":82.606056,"battery":86.35,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":61,"time":"2026-06-28 04:39:03","lat":45.500476,"lon":82.523986,"battery":86.62,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":62,"time":"2026-06-30 04:36:58","lat":45.473968,"lon":82.543174,"battery":83.92,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":63,"time":"2026-06-30 04:37:53","lat":45.473968,"lon":82.543174,"battery":78.92,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":64,"time":"2026-06-30 06:37:03","lat":45.473968,"lon":82.543174,"battery":83.78,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":65,"time":"2026-06-30 08:36:06","lat":45.44819,"lon":82.607617,"battery":83.51,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":66,"time":"2026-06-30 10:36:38","lat":45.473968,"lon":82.543174,"battery":83.78,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":67,"time":"2026-06-30 10:37:01","lat":45.473968,"lon":82.543174,"battery":83.65,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":68,"time":"2026-06-30 20:35:54","lat":45.473968,"lon":82.543174,"battery":82.7,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":69,"time":"2026-06-30 22:36:19","lat":45.500476,"lon":82.523986,"battery":82.57,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":70,"time":"2026-07-01 00:36:02","lat":45.44819,"lon":82.607617,"battery":83.38,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":71,"time":"2026-07-01 02:35:59","lat":45.44819,"lon":82.607617,"battery":83.51,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":72,"time":"2026-07-01 12:35:10","lat":45.438011,"lon":82.575408,"battery":81.76,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":73,"time":"2026-07-01 14:35:46","lat":45.438011,"lon":82.575408,"battery":82.16,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":74,"time":"2026-07-01 16:35:03","lat":45.594268,"lon":82.269157,"battery":82.3,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":75,"time":"2026-07-01 18:34:55","lat":45.92678,"lon":81.45886,"battery":81.49,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":76,"time":"2026-07-01 22:35:09","lat":46.947257,"lon":79.676094,"battery":81.35,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":77,"time":"2026-07-02 10:33:58","lat":46.846862,"lon":75.002426,"battery":80.68,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":78,"time":"2026-07-02 12:33:57","lat":46.849934,"lon":74.998786,"battery":80.95,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":79,"time":"2026-07-02 18:34:45","lat":47.201589,"lon":73.368812,"battery":81.22,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":80,"time":"2026-07-02 18:34:54","lat":47.201589,"lon":73.368812,"battery":80.81,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":81,"time":"2026-07-03 02:33:04","lat":49.791005,"lon":73.090398,"battery":80.41,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":82,"time":"2026-07-03 04:33:12","lat":50.235277,"lon":73.046681,"battery":80.68,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":83,"time":"2026-07-03 06:32:58","lat":50.444329,"lon":72.68891,"battery":81.22,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":84,"time":"2026-07-03 08:34:00","lat":51.033022,"lon":71.845809,"battery":80.68,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":85,"time":"2026-07-03 10:32:56","lat":51.161607,"lon":71.50774,"battery":80.54,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":86,"time":"2026-07-03 14:33:06","lat":51.798424,"lon":69.024254,"battery":80.81,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":87,"time":"2026-07-03 16:31:55","lat":51.80467,"lon":68.359746,"battery":79.86,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":88,"time":"2026-07-03 18:31:58","lat":51.898431,"lon":67.448123,"battery":80.54,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":89,"time":"2026-07-03 20:31:54","lat":51.87702,"lon":66.23618,"battery":80.54,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":90,"time":"2026-07-03 22:32:09","lat":52.45151,"lon":64.625545,"battery":80.0,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":91,"time":"2026-07-04 00:32:41","lat":52.464759,"lon":63.638571,"battery":79.86,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":92,"time":"2026-07-04 00:34:11","lat":52.464759,"lon":63.638571,"battery":79.73,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":93,"time":"2026-07-04 02:32:55","lat":52.660621,"lon":62.59571,"battery":79.46,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":94,"time":"2026-07-04 04:33:08","lat":52.688279,"lon":62.583085,"battery":79.59,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":95,"time":"2026-07-04 06:33:00","lat":52.694439,"lon":62.594261,"battery":79.59,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":96,"time":"2026-07-04 08:33:02","lat":52.806732,"lon":62.182678,"battery":80.14,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":97,"time":"2026-07-04 10:32:55","lat":53.012152,"lon":61.152497,"battery":79.86,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":98,"time":"2026-07-04 12:32:56","lat":53.017884,"lon":61.107788,"battery":79.73,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":99,"time":"2026-07-04 14:33:00","lat":53.007949,"lon":60.721795,"battery":79.46,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":100,"time":"2026-07-04 16:33:02","lat":53.007949,"lon":60.721795,"battery":79.46,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":101,"time":"2026-07-04 18:32:58","lat":53.007949,"lon":60.721795,"battery":79.32,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":102,"time":"2026-07-04 20:33:30","lat":53.047186,"lon":60.639484,"battery":78.78,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":103,"time":"2026-07-04 22:32:37","lat":53.027272,"lon":60.73865,"battery":79.32,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":104,"time":"2026-07-05 00:32:00","lat":52.335748,"lon":60.253318,"battery":79.32,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":105,"time":"2026-07-05 02:31:57","lat":51.575381,"lon":59.479317,"battery":79.19,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":106,"time":"2026-07-05 04:32:25","lat":51.210088,"lon":58.654524,"battery":79.05,"speed":"-","country":"哈萨克斯坦","countryCode":"KZ"},{"idx":107,"time":"2026-07-05 12:32:03","lat":51.772195,"lon":55.07739,"battery":78.51,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":108,"time":"2026-07-05 14:32:13","lat":51.775929,"lon":55.075723,"battery":77.97,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":109,"time":"2026-07-05 18:31:44","lat":52.304115,"lon":53.342208,"battery":77.97,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":111,"time":"2026-07-06 04:31:54","lat":53.122102,"lon":49.931242,"battery":78.24,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":112,"time":"2026-07-06 08:31:00","lat":53.39745,"lon":47.999814,"battery":78.78,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":113,"time":"2026-07-06 10:31:19","lat":53.707147,"lon":46.87931,"battery":78.51,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":114,"time":"2026-07-06 14:33:03","lat":54.061447,"lon":44.965673,"battery":77.7,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":115,"time":"2026-07-06 16:33:03","lat":54.036536,"lon":43.910539,"battery":77.43,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":116,"time":"2026-07-06 18:33:20","lat":54.194249,"lon":42.483961,"battery":77.84,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":117,"time":"2026-07-06 22:33:05","lat":54.636454,"lon":39.716191,"battery":77.84,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":118,"time":"2026-07-07 00:33:39","lat":54.921718,"lon":39.103393,"battery":77.7,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":119,"time":"2026-07-07 02:32:55","lat":55.123934,"lon":38.347088,"battery":78.24,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":120,"time":"2026-07-07 04:33:00","lat":55.396143,"lon":36.892747,"battery":77.57,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":121,"time":"2026-07-07 06:33:31","lat":55.524911,"lon":35.616993,"battery":77.16,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":122,"time":"2026-07-07 08:33:05","lat":55.201908,"lon":34.315532,"battery":77.57,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":123,"time":"2026-07-07 14:32:49","lat":54.815556,"lon":32.127644,"battery":77.57,"speed":"-","country":"俄罗斯","countryCode":"RU"},{"idx":124,"time":"2026-07-07 16:32:37","lat":54.667374,"lon":30.698282,"battery":77.03,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":125,"time":"2026-07-07 16:32:48","lat":54.667756,"lon":30.699387,"battery":76.89,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":126,"time":"2026-07-07 22:33:11","lat":54.520169,"lon":30.375963,"battery":76.62,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":127,"time":"2026-07-08 00:32:22","lat":54.499621,"lon":30.143055,"battery":77.16,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":128,"time":"2026-07-08 02:32:57","lat":54.296218,"lon":28.905067,"battery":76.49,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":129,"time":"2026-07-08 04:32:39","lat":53.891597,"lon":27.612888,"battery":76.76,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":130,"time":"2026-07-08 06:31:15","lat":53.380006,"lon":26.559627,"battery":76.62,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":131,"time":"2026-07-08 08:31:59","lat":52.876203,"lon":25.659845,"battery":76.35,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":132,"time":"2026-07-08 10:31:21","lat":52.201493,"lon":24.045439,"battery":76.76,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":133,"time":"2026-07-08 12:31:34","lat":52.112518,"lon":23.66701,"battery":76.49,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":134,"time":"2026-07-08 14:31:26","lat":52.11328,"lon":23.66862,"battery":76.49,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":135,"time":"2026-07-08 16:31:38","lat":52.113509,"lon":23.684991,"battery":76.22,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":136,"time":"2026-07-08 18:31:30","lat":52.118506,"lon":23.690076,"battery":76.49,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":137,"time":"2026-07-08 20:31:32","lat":52.113023,"lon":23.685559,"battery":76.35,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":138,"time":"2026-07-08 22:32:05","lat":52.118506,"lon":23.690076,"battery":76.08,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":139,"time":"2026-07-09 02:30:27","lat":52.110601,"lon":23.732331,"battery":75.95,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":140,"time":"2026-07-09 06:30:02","lat":52.107429,"lon":23.73379,"battery":74.86,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":141,"time":"2026-07-09 08:30:59","lat":52.111882,"lon":23.731093,"battery":75.68,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":142,"time":"2026-07-09 14:30:26","lat":52.112447,"lon":23.731859,"battery":75.81,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":143,"time":"2026-07-09 18:30:10","lat":52.10394,"lon":23.709966,"battery":75.27,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":144,"time":"2026-07-09 22:28:57","lat":52.10877,"lon":23.698146,"battery":75.41,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":145,"time":"2026-07-10 02:29:06","lat":52.0903,"lon":23.65278,"battery":75.0,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":146,"time":"2026-07-10 04:29:02","lat":52.066424,"lon":23.593431,"battery":75.27,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":147,"time":"2026-07-10 08:29:06","lat":51.97698,"lon":23.65675,"battery":75.95,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":148,"time":"2026-07-10 10:29:07","lat":52.039948,"lon":23.563122,"battery":75.54,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":149,"time":"2026-07-10 12:28:58","lat":52.043809,"lon":23.535787,"battery":75.27,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":150,"time":"2026-07-10 14:29:06","lat":52.043809,"lon":23.535787,"battery":75.27,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":151,"time":"2026-07-10 16:29:08","lat":52.038641,"lon":23.551683,"battery":75.41,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":152,"time":"2026-07-10 18:28:01","lat":52.00176,"lon":23.606885,"battery":75.27,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":153,"time":"2026-07-10 20:27:56","lat":52.00176,"lon":23.606885,"battery":75.81,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":154,"time":"2026-07-10 22:28:05","lat":52.05948,"lon":23.61638,"battery":74.86,"speed":"-","country":"白俄罗斯","countryCode":"BY"},{"idx":155,"time":"2026-07-11 00:28:00","lat":51.990248,"lon":22.794717,"battery":75.14,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":156,"time":"2026-07-11 02:27:55","lat":51.97592,"lon":22.51303,"battery":75.14,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":157,"time":"2026-07-11 04:27:56","lat":51.97592,"lon":22.51303,"battery":75.14,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":158,"time":"2026-07-11 06:27:58","lat":51.97592,"lon":22.51303,"battery":75.0,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":159,"time":"2026-07-11 08:27:59","lat":51.97592,"lon":22.51303,"battery":74.73,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":160,"time":"2026-07-11 10:28:06","lat":51.97592,"lon":22.51303,"battery":74.73,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":161,"time":"2026-07-11 12:28:06","lat":51.97592,"lon":22.51303,"battery":74.86,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":162,"time":"2026-07-11 14:28:59","lat":51.97592,"lon":22.51303,"battery":74.86,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":163,"time":"2026-07-11 16:29:00","lat":51.97592,"lon":22.51303,"battery":74.86,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":164,"time":"2026-07-11 18:28:55","lat":51.97592,"lon":22.51303,"battery":74.86,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":165,"time":"2026-07-11 20:28:57","lat":51.97592,"lon":22.51303,"battery":74.73,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":166,"time":"2026-07-11 22:28:58","lat":51.97592,"lon":22.51303,"battery":74.73,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":167,"time":"2026-07-12 00:29:03","lat":51.97592,"lon":22.51303,"battery":74.73,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":168,"time":"2026-07-12 02:28:55","lat":51.97592,"lon":22.51303,"battery":74.73,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":169,"time":"2026-07-12 04:28:57","lat":51.97592,"lon":22.51303,"battery":74.59,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":170,"time":"2026-07-12 06:29:05","lat":51.97592,"lon":22.51303,"battery":74.59,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":171,"time":"2026-07-12 08:29:07","lat":51.97592,"lon":22.51303,"battery":74.73,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":172,"time":"2026-07-12 10:28:00","lat":51.97592,"lon":22.51303,"battery":74.46,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":173,"time":"2026-07-12 12:28:00","lat":51.97592,"lon":22.51303,"battery":74.59,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":174,"time":"2026-07-12 14:28:02","lat":51.97592,"lon":22.51303,"battery":74.32,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":175,"time":"2026-07-12 16:27:55","lat":51.97592,"lon":22.51303,"battery":74.46,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":176,"time":"2026-07-12 18:28:01","lat":51.97592,"lon":22.51303,"battery":74.59,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":177,"time":"2026-07-12 20:28:00","lat":51.97592,"lon":22.51303,"battery":74.32,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":178,"time":"2026-07-12 22:28:03","lat":51.97592,"lon":22.51303,"battery":74.46,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":179,"time":"2026-07-13 00:27:55","lat":51.97592,"lon":22.51303,"battery":74.46,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":180,"time":"2026-07-13 02:28:02","lat":51.97592,"lon":22.51303,"battery":74.73,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":181,"time":"2026-07-13 04:28:03","lat":51.97592,"lon":22.51303,"battery":74.46,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":182,"time":"2026-07-13 06:26:54","lat":51.97592,"lon":22.51303,"battery":74.46,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":183,"time":"2026-07-13 08:26:57","lat":51.97592,"lon":22.51303,"battery":74.59,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":184,"time":"2026-07-13 10:26:57","lat":51.97592,"lon":22.51303,"battery":74.32,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":185,"time":"2026-07-13 12:27:01","lat":51.97592,"lon":22.51303,"battery":74.19,"speed":"-","country":"波兰","countryCode":"PL"},{"idx":186,"time":"2026-07-13 14:27:02","lat":52.200149,"lon":20.846059,"battery":73.92,"speed":"-","country":"波兰","countryCode":"PL"}];
+    const sampleRemovedPoints = [{"idx":110,"time":"2026-07-05 22:31:42","lat":55.865669,"lon":37.537915,"country":"俄罗斯","prevSpeed":275.4,"nextSpeed":142.4,"shortcutSpeed":24.7,"detourRatio":7.9,"reason":"前后两段速度异常且形成尖刺，跳过该点后路线恢复合理。"}];
+    const sampleBorderCrossings = [{"seqNo":1,"fromCountry":"中国","fromCountryCode":"CN","toCountry":"哈萨克斯坦","toCountryCode":"KZ","fromPoint":35,"toPoint":36,"crossingTime":"2026-06-26 00:42:00","lat":45.156364,"lon":82.564171,"matchedPortShortName":"阿拉山口/多斯特克","matchedDistanceKm":1.3,"confidence":0.85,"note":"根据相邻有效轨迹点的国家归属变化自动识别。"},{"seqNo":2,"fromCountry":"哈萨克斯坦","fromCountryCode":"KZ","toCountry":"俄罗斯","toCountryCode":"RU","fromPoint":105,"toPoint":106,"crossingTime":"2026-07-05 04:32:25","lat":51.479378,"lon":56.569271,"matchedPortShortName":"奥伦堡方向哈俄口岸","matchedDistanceKm":14.0,"confidence":0.85,"note":"根据相邻有效轨迹点的国家归属变化自动识别。"},{"seqNo":3,"fromCountry":"俄罗斯","fromCountryCode":"RU","toCountry":"白俄罗斯","toCountryCode":"BY","fromPoint":126,"toPoint":127,"crossingTime":"2026-07-08 00:32:22","lat":54.79088,"lon":31.670273,"matchedPortShortName":"克拉斯诺耶/奥西诺夫卡","matchedDistanceKm":7.4,"confidence":0.85,"note":"根据相邻有效轨迹点的国家归属变化自动识别。"},{"seqNo":4,"fromCountry":"白俄罗斯","fromCountryCode":"BY","toCountry":"波兰","toCountryCode":"PL","fromPoint":133,"toPoint":134,"crossingTime":"2026-07-08 12:31:22","lat":52.008461,"lon":23.045765,"matchedPortShortName":"布列斯特/特雷斯波尔","matchedDistanceKm":42.9,"confidence":0.85,"note":"根据相邻有效轨迹点的国家归属变化自动识别。"}];
+    const samplePorts = [{"name":"阿拉山口 / 多斯特克口岸","shortName":"阿拉山口/多斯特克","countries":"中国 - 哈萨克斯坦","lat":45.167,"lon":82.575,"radiusKm":60,"note":"中哈铁路口岸，轨迹在第 33-74 个点附近停留并通过。","arrivalPoint":33,"departurePoint":74,"nearPoints":"33-74","arrivalTime":"2026-06-25 18:42:02","departureTime":"2026-07-01 16:35:03","waitDuration":"5天21小时53分","waitHours":141.9},{"name":"奥伦堡方向哈俄口岸","shortName":"奥伦堡方向哈俄口岸","countries":"哈萨克斯坦 - 俄罗斯","lat":51.46,"lon":56.37,"radiusKm":180,"note":"按轨迹从哈萨克斯坦西北部进入俄罗斯推定，接近奥伦堡方向通道。","arrivalPoint":106,"departurePoint":108,"nearPoints":"106-108","arrivalTime":"2026-07-05 04:32:25","departureTime":"2026-07-05 14:32:13","waitDuration":"9小时59分","waitHours":10.0},{"name":"克拉斯诺耶 / 奥西诺夫卡口岸","shortName":"克拉斯诺耶/奥西诺夫卡","countries":"俄罗斯 - 白俄罗斯","lat":54.73,"lon":31.72,"radiusKm":130,"note":"俄白铁路边境口岸，轨迹在第 123-127 个点附近通过。","arrivalPoint":123,"departurePoint":127,"nearPoints":"123-127","arrivalTime":"2026-07-07 14:32:49","departureTime":"2026-07-08 00:32:22","waitDuration":"9小时59分","waitHours":10.0},{"name":"布列斯特 / 特雷斯波尔口岸","shortName":"布列斯特/特雷斯波尔","countries":"白俄罗斯 - 波兰","lat":52.083,"lon":23.66,"radiusKm":80,"note":"白波边境铁路/公路口岸，轨迹在第 132-185 个点附近停留并进入波兰。","arrivalPoint":132,"departurePoint":185,"nearPoints":"132-185","arrivalTime":"2026-07-08 10:31:21","departureTime":"2026-07-13 12:27:01","waitDuration":"5天1小时55分","waitHours":121.9}];
+    const sampleRoute = {"origin":"始发站（中国四川绵阳附近）","destination":"目的站（波兰华沙附近）","nodes":["始发站（中国四川绵阳附近）","阿拉山口/多斯特克","奥伦堡方向哈俄口岸","克拉斯诺耶/奥西诺夫卡","布列斯特/特雷斯波尔","目的站（波兰华沙附近）"],"routeText":"始发站（中国四川绵阳附近） → 阿拉山口/多斯特克 → 奥伦堡方向哈俄口岸 → 克拉斯诺耶/奥西诺夫卡 → 布列斯特/特雷斯波尔 → 目的站（波兰华沙附近）","totalDuration":"20天13小时42分","startTime":"2026-06-23 00:44:54","endTime":"2026-07-13 14:27:02","segments":[{"name":"始发站（中国四川绵阳附近） → 阿拉山口/多斯特克","from":"始发站（中国四川绵阳附近）","to":"阿拉山口/多斯特克","departTime":"2026-06-23 00:44:54","arrivalTime":"2026-06-25 18:42:02","transportDuration":"2天17小时57分","transportHours":66.0,"portWait":"5天21小时53分","portName":"阿拉山口/多斯特克"},{"name":"阿拉山口/多斯特克 → 奥伦堡方向哈俄口岸","from":"阿拉山口/多斯特克","to":"奥伦堡方向哈俄口岸","departTime":"2026-07-01 16:35:03","arrivalTime":"2026-07-05 04:32:25","transportDuration":"3天11小时57分","transportHours":84.0,"portWait":"9小时59分","portName":"奥伦堡方向哈俄口岸"},{"name":"奥伦堡方向哈俄口岸 → 克拉斯诺耶/奥西诺夫卡","from":"奥伦堡方向哈俄口岸","to":"克拉斯诺耶/奥西诺夫卡","departTime":"2026-07-05 14:32:13","arrivalTime":"2026-07-07 14:32:49","transportDuration":"2天0小时0分","transportHours":48.0,"portWait":"9小时59分","portName":"克拉斯诺耶/奥西诺夫卡"},{"name":"克拉斯诺耶/奥西诺夫卡 → 布列斯特/特雷斯波尔","from":"克拉斯诺耶/奥西诺夫卡","to":"布列斯特/特雷斯波尔","departTime":"2026-07-08 00:32:22","arrivalTime":"2026-07-08 10:31:21","transportDuration":"9小时58分","transportHours":10.0,"portWait":"5天1小时55分","portName":"布列斯特/特雷斯波尔"},{"name":"布列斯特/特雷斯波尔 → 目的站（波兰华沙附近）","from":"布列斯特/特雷斯波尔","to":"目的站（波兰华沙附近）","departTime":"2026-07-13 12:27:01","arrivalTime":"2026-07-13 14:27:02","transportDuration":"2小时0分","transportHours":2.0,"portWait":"-","portName":"-"}]};
+    const sampleMeta = {"device":"61007408","rawCount":186,"count":185,"removedCount":1,"start":"2026-06-23 00:44:54","end":"2026-07-13 14:27:02","countries":["中国","哈萨克斯坦","俄罗斯","白俄罗斯","波兰"],"countryCounts":{"中国":35,"哈萨克斯坦":71,"俄罗斯":16,"白俄罗斯":31,"波兰":32},"totalDuration":"20天13小时42分"};
+    let points = samplePoints;
+    let removedPoints = sampleRemovedPoints;
+    let ports = samplePorts;
+    let borderCrossings = sampleBorderCrossings;
+    let route = sampleRoute;
+    let meta = sampleMeta;
+    let currentMap = null;
+    let truckLayer = null;
+    let railLayer = null;
+    let truckRoutes = [];
+    let truckRouteLayerRecords = [];
+    let truckSelectedIndex = 0;
+    let lastTruckDestination = null;
+    let lastTruckReturnStation = null;
+    let activeModule = 'truck';
+    let railRateData = null;
+    let railOptions = null;
+    let railTrackingData = null;
+    let railTrackingLoadPromise = null;
+    let railSpotRateData = null;
+    let railMarketFactors = null;
+    let railSupplierSources = null;
+    let baseLayer = null;
+    let mapProvider = 'esri-street';
+    const SIDEBAR_STORAGE_KEY = 'rates.sidebarCollapsed';
+    const mapProviders = {
+      'esri-street': {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+        options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+      },
+      'esri-imagery': {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+      },
+      openstreetmap: {
+        url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        options: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors | reverse geocoding: Nominatim' }
+      }
+    };
+    const apiBaseUrl = window.location.pathname.startsWith('/rates')
+      ? '/rates'
+      : 'http://127.0.0.1:8025';
+    const colors = { CN: '#d7263d', KZ: '#2563eb', RU: '#7c3aed', BY: '#059669', PL: '#ea580c' };
+    const cssCode = { CN: 'cn', KZ: 'kz', RU: 'ru', BY: 'by', PL: 'pl' };
+    function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch])); }
+    function setText(id, value) { const el = document.getElementById(id); if (el) el.textContent = value; }
+    function formatTime(value) {
+      if (!value) return '-';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value).replace('T', ' ').replace(/\+00:00|Z$/, '');
+      const parts = new Intl.DateTimeFormat('zh-CN', {
+        timeZone: 'Asia/Shanghai',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }).formatToParts(date).reduce((acc, part) => {
+        acc[part.type] = part.value;
+        return acc;
+      }, {});
+      return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+    }
+    function formatCoord(value) {
+      if (value == null || value === '') return '-';
+      const number = Number(value);
+      return Number.isFinite(number) ? number.toFixed(6) : String(value);
+    }
+    function latestPoint() { return points.length ? points[points.length - 1] : null; }
+    function popupHtml(p, extraHtml) { return `<div class="point-popup"><h2>原始第 ${p.idx} 个点</h2><p><b>所属国家：</b>${p.country}</p><p><b>采集时间：</b>${formatTime(p.time)}</p><p><b>经纬度：</b>${formatCoord(p.lon)}, ${formatCoord(p.lat)}</p><p><b>电量：</b>${p.battery == null ? '-' : p.battery + '%'}</p><p><b>速度：</b>${p.speed || '-'}</p><div class="geo-status">${extraHtml || '点击后正在查询具体地理位置...'}</div></div>`; }
+    function formatAddress(data) {
+      if (!data) return '未查询到具体地址。';
+      const a = data.address || {};
+      const pieces = [a.country, a.state || a.province || a.region, a.county || a.city || a.town || a.village, a.suburb || a.neighbourhood, a.road || a.railway || a.hamlet].filter(Boolean);
+      return `<b>具体位置：</b>${escapeHtml((pieces.length ? pieces.join(' / ') : data.display_name) || '未查询到具体地址')}<br><b>OSM 国家：</b>${escapeHtml(a.country || '-')}`;
+    }
+    async function enrichPopup(marker, p) {
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=zh-CN&lat=${p.lat}&lon=${p.lon}&zoom=12&addressdetails=1`);
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        marker.setPopupContent(popupHtml(p, formatAddress(await response.json())));
+      } catch (err) { marker.setPopupContent(popupHtml(p, '具体位置查询失败，可放大地图查看附近地名。')); }
+    }
+    function initHeader() {
+      const latest = latestPoint();
+      setText('device', meta.device || '-'); setText('count', meta.count + ' / 原始 ' + meta.rawCount); setText('removed-count', meta.removedCount); setText('total-duration', meta.totalDuration); setText('latest-position', latest ? `${latest.country} ${formatCoord(latest.lon)}, ${formatCoord(latest.lat)}` : '-'); setText('latest-time', latest ? formatTime(latest.time) : '-');
+      document.getElementById('countries').innerHTML = meta.countries.map(name => { const p = points.find(item => item.country === name); return `<span class="pill"><span class="dot ${cssCode[p.countryCode]}"></span>${name} ${meta.countryCounts[name]} 点</span>`; }).join('') + `<span class="pill removed">已剔除 ${meta.removedCount} 个漂移点</span>`;
+      setText('route-total', '总时效 ' + route.totalDuration);
+      setText('route-text', route.routeText);
+      document.getElementById('route-segments').innerHTML = route.segments.map(seg => `<tr><td>${escapeHtml(seg.name)}</td><td>${escapeHtml(formatTime(seg.departTime))}</td><td>${escapeHtml(formatTime(seg.arrivalTime))}</td><td>${escapeHtml(seg.transportDuration)}</td><td>${escapeHtml(seg.portWait)}</td></tr>`).join('');
+    }
+    function applyTrajectoryData(data) {
+      points = data.points || [];
+      removedPoints = data.removedPoints || [];
+      ports = data.ports || [];
+      borderCrossings = data.borderCrossings || [];
+      route = data.route || { routeText: '', totalDuration: '-', segments: [] };
+      meta = data.meta || { device: '', rawCount: 0, count: 0, removedCount: 0, countries: [], countryCounts: {}, totalDuration: '-' };
+      init();
+    }
+    async function queryDevice(deviceId) {
+      const status = document.getElementById('query-status');
+      const button = document.getElementById('device-query-button');
+      const select = document.getElementById('device-quick-select');
+      status.classList.remove('error');
+      status.textContent = '正在查询数据库...';
+      button.disabled = true;
+      if (select) select.disabled = true;
+      try {
+        const url = `${apiBaseUrl}/api/trajectory?device_id=${encodeURIComponent(deviceId)}&limit=5000`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || `HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        if (!data.points || data.points.length === 0) {
+          throw new Error('数据库没有查到该设备的轨迹点');
+        }
+        applyTrajectoryData(data);
+        const input = document.getElementById('device-query-input');
+        if (input) input.value = deviceId;
+        if (select) select.value = deviceId;
+        status.textContent = '';
+      } catch (err) {
+        status.classList.add('error');
+        status.textContent = `查询失败：${err.message || err}。请确认 API 已启动在 ${apiBaseUrl}`;
+      } finally {
+        button.disabled = false;
+        if (select) select.disabled = false;
+      }
+    }
+    async function loadTrajectoryDevices() {
+      const select = document.getElementById('device-quick-select');
+      const status = document.getElementById('query-status');
+      if (!select) return;
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/trajectory-devices?limit=200`);
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const data = await response.json();
+        const devices = data.items || [];
+        select.innerHTML = '<option value="">选择有轨迹设备...</option>' + devices.map(item => {
+          const count = item.trackPointCount == null ? '-' : item.trackPointCount;
+          const duration = item.totalDuration || '-';
+          return `<option value="${escapeHtml(item.deviceId)}">${escapeHtml(item.deviceId)} · ${count}点 · ${escapeHtml(duration)}</option>`;
+        }).join('');
+        select.value = document.getElementById('device-query-input').value.trim();
+        if (status && devices.length) status.textContent = '';
+      } catch (err) {
+        select.innerHTML = '<option value="">设备列表不可用</option>';
+      }
+    }
+    function bindQueryForm() {
+      const form = document.getElementById('device-query-form');
+      const select = document.getElementById('device-quick-select');
+      form.addEventListener('submit', event => {
+        event.preventDefault();
+        const deviceId = document.getElementById('device-query-input').value.trim();
+        if (!deviceId) return;
+        queryDevice(deviceId);
+      });
+      select.addEventListener('change', event => {
+        const deviceId = event.target.value;
+        if (!deviceId) return;
+        queryDevice(deviceId);
+      });
+    }
+    function setBaseLayer(map, providerName = mapProvider) {
+      if (!map || typeof L === 'undefined') return;
+      const provider = mapProviders[providerName] || mapProviders['esri-street'];
+      mapProvider = mapProviders[providerName] ? providerName : 'esri-street';
+      if (baseLayer && baseLayer._map) baseLayer._map.removeLayer(baseLayer);
+      baseLayer = L.tileLayer(provider.url, provider.options).addTo(map);
+      document.querySelectorAll('[data-map-provider]').forEach(button => {
+        button.setAttribute('aria-pressed', String(button.dataset.mapProvider === mapProvider));
+      });
+    }
+    function bindMapProviderControls() {
+      document.querySelectorAll('[data-map-provider]').forEach(button => {
+        button.addEventListener('click', () => {
+          setBaseLayer(currentMap, button.dataset.mapProvider);
+          setTimeout(() => currentMap && currentMap.invalidateSize(), 120);
+        });
+      });
+    }
+    function markerIcon(label, className, selected = false) {
+      const size = selected ? 38 : 32;
+      return L.divIcon({
+        className: '',
+        html: `<div class="${className}" style="width:${size}px;height:${size}px;">${escapeHtml(label)}</div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+      });
+    }
+    function tileXY(lat, lon, zoom) {
+      const scale = 2 ** zoom;
+      const x = Math.floor((lon + 180) / 360 * scale);
+      const y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * scale);
+      return { x, y };
+    }
+    function providerTileUrl(provider, z, x, y) {
+      return provider.url.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+    }
+    async function cacheCurrentMapTiles() {
+      const status = document.getElementById('tile-cache-status');
+      if (!currentMap || !mapProviders[mapProvider]) return;
+      status.textContent = '正在缓存...';
+      const bounds = currentMap.getBounds();
+      const urls = [];
+      const currentZoom = Math.round(currentMap.getZoom());
+      for (const z of [currentZoom - 1, currentZoom, currentZoom + 1].filter(value => value >= 3 && value <= 12)) {
+        const nw = tileXY(bounds.getNorth(), bounds.getWest(), z);
+        const se = tileXY(bounds.getSouth(), bounds.getEast(), z);
+        for (let x = Math.min(nw.x, se.x); x <= Math.max(nw.x, se.x); x++) {
+          for (let y = Math.min(nw.y, se.y); y <= Math.max(nw.y, se.y); y++) {
+            urls.push(providerTileUrl(mapProviders[mapProvider], z, x, y));
+          }
+        }
+      }
+      const limited = urls.slice(0, 90);
+      await Promise.allSettled(limited.map(url => fetch(url, { mode: 'no-cors', cache: 'force-cache' })));
+      status.textContent = `已缓存 ${limited.length} 张`;
+    }
+    function bindTileCacheControls() {
+      const button = document.getElementById('cache-map-tiles');
+      if (button) button.addEventListener('click', cacheCurrentMapTiles);
+      if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+        navigator.serviceWorker.register(`${window.location.pathname.replace(/\/[^/]*$/, '/') || '/rates/'}sw.js`).catch(() => {});
+      }
+    }
+    function createBaseMap(center, zoom) {
+      if (truckLayer && currentMap) { currentMap.removeLayer(truckLayer); truckLayer = null; }
+      if (currentMap) { currentMap.remove(); currentMap = null; }
+      baseLayer = null;
+      document.getElementById('map').innerHTML = '';
+      if (typeof L === 'undefined') {
+        document.getElementById('map').innerHTML = '<div style="padding:16px;color:#b91c1c;">地图脚本没有加载成功，请检查网络或刷新页面。</div>';
+        return null;
+      }
+      const map = L.map('map', { preferCanvas: true, scrollWheelZoom: true }).setView(center, zoom);
+      currentMap = map;
+      setBaseLayer(map);
+      setTimeout(() => map.invalidateSize(), 200);
+      return map;
+    }
+    function initTruckMap() {
+      createBaseMap([49.2, 13.5], 4);
+      clearTruckLayer();
+      if (truckRoutes.length && lastTruckDestination) drawAllTruckRoutes(lastTruckDestination, truckSelectedIndex);
+    }
+    function formatUsd(value) {
+      return '$' + Math.round(Number(value) || 0).toLocaleString();
+    }
+    function setSelectOptions(select, values, formatter = value => value) {
+      if (!select) return;
+      const current = select.value;
+      select.innerHTML = values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(formatter(value))}</option>`).join('');
+      if (values.includes(current)) select.value = current;
+    }
+    function setDatalistOptions(datalist, records, valueBuilder, labelBuilder) {
+      if (!datalist) return;
+      datalist.innerHTML = records.map(record => {
+        const value = valueBuilder(record);
+        const label = labelBuilder ? labelBuilder(record) : '';
+        return `<option value="${escapeHtml(value)}"${label ? ` label="${escapeHtml(label)}"` : ''}></option>`;
+      }).join('');
+    }
+    function railKey(...parts) {
+      return parts.join('||');
+    }
+    const railDestinationNameCn = {
+      'Vorsino': '沃尔西诺',
+      'Selyatino, access way of LLC STS-Logistic': '谢利亚季诺',
+      'Kolyadichi': '科利亚季奇',
+      'Shabany': '沙巴内',
+      'EKATERINBURG-TOVARNY': '叶卡捷琳堡货运站',
+      'Shushary-Logistika': '舒沙雷物流站',
+      'KLESHCHIHA': '克列希哈',
+      'Kupavna, terminal of LLC CONTAINER TERMINAL KUPAVNA': '库帕夫纳',
+      'Kresty': '克列斯特',
+      'Bely Rast, spur track of TLC Bely Rast': '别雷拉斯特',
+    };
+    function findCurrentDestinationMeta(destinationName) {
+      const pricingMode = document.getElementById('rail-pricing-mode').value;
+      const borderCrossing = document.getElementById('rail-border-crossing').value;
+      if (pricingMode === 'prediction') {
+        return (railSpotRateData && railSpotRateData.rates || []).find(rate =>
+          rate.borderCrossing === borderCrossing && rate.destinationName === destinationName
+        ) || {};
+      }
+      return (railRateData && railRateData.rates || []).find(rate =>
+        rate.borderCrossing === borderCrossing && rate.destinationName === destinationName
+      ) || {};
+    }
+    function railDestinationRecords(borderCrossing, pricingMode) {
+      if (pricingMode === 'prediction') {
+        return (railSpotRateData && railSpotRateData.rates || [])
+          .filter(rate => rate.borderCrossing === borderCrossing);
+      }
+      const byDestination = new Map();
+      (railRateData && railRateData.rates || [])
+        .filter(rate => rate.borderCrossing === borderCrossing)
+        .forEach(rate => {
+          if (!byDestination.has(rate.destinationName)) byDestination.set(rate.destinationName, rate);
+        });
+      return Array.from(byDestination.values());
+    }
+    function normalizeRailText(value) {
+      return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+    function formatRailDestinationOption(destinationName) {
+      const meta = findCurrentDestinationMeta(destinationName);
+      const cn = meta.localNameCn || railDestinationNameCn[destinationName] || '';
+      const en = destinationName;
+      const code = meta.stationCode ? ` / ${meta.stationCode}` : '';
+      return cn ? `${cn} / ${en}${code}` : `${en}${code}`;
+    }
+    function formatRailBorderCrossing(borderCrossing) {
+      return ({
+        '满洲里/后贝加尔': '满洲里 / 后贝加尔',
+        '二连/扎门乌德': '二连 / 扎门乌德',
+        '山口/Dostyk': '阿拉山口 / 多斯特克',
+        '果斯/Altynkol': '霍尔果斯 / 阿腾科里',
+      })[borderCrossing] || borderCrossing;
+    }
+    function formatRailRouteName(name) {
+      return String(name || '').replace(/Dostyk/g, '多斯特克').replace(/Altynkol/g, '阿腾科里');
+    }
+    function formatRailDestinationSummary(rate) {
+      const meta = findCurrentDestinationMeta(rate.destinationName);
+      const cn = meta.localNameCn || railDestinationNameCn[rate.destinationName] || '';
+      const en = rate.destinationName;
+      const code = rate.stationCode || meta.stationCode || '-';
+      return cn ? `${cn} / ${en} (${code})` : `${en} (${code})`;
+    }
+    function destinationSearchValues(record) {
+      const cn = record.localNameCn || railDestinationNameCn[record.destinationName] || '';
+      return [
+        record.destinationName,
+        record.localName,
+        cn,
+        record.stationCode,
+        cn ? `${cn} / ${record.destinationName}` : '',
+        cn ? `${cn} / ${record.destinationName} / ${record.stationCode || ''}` : '',
+      ].filter(Boolean).map(normalizeRailText);
+    }
+    function resolveRailDestinationName(rawDestination, rawStationCode, borderCrossing, pricingMode) {
+      const records = railDestinationRecords(borderCrossing, pricingMode);
+      const destination = normalizeRailText(rawDestination);
+      if (destination) {
+        const exact = records.find(record => destinationSearchValues(record).includes(destination));
+        if (exact) return exact.destinationName;
+        const partial = records.find(record => destinationSearchValues(record).some(value => value.includes(destination) || destination.includes(value)));
+        if (partial) return partial.destinationName;
+      }
+      const code = normalizeRailText(rawStationCode);
+      if (code) {
+        const byCode = records.find(record => normalizeRailText(record.stationCode) === code);
+        if (byCode) return byCode.destinationName;
+      }
+      if (!destination) return records[0] ? records[0].destinationName : '';
+      return rawDestination;
+    }
+    function railDestinationDisplayValue(record) {
+      const cn = record.localNameCn || railDestinationNameCn[record.destinationName] || '';
+      return cn ? `${cn} / ${record.destinationName}` : record.destinationName;
+    }
+    function syncRailStationFields(destinationName, shouldFillDestination) {
+      const input = selectedRailInput();
+      const record = railDestinationRecords(input.borderCrossing, input.pricingMode)
+        .find(item => item.destinationName === destinationName);
+      if (!record) return;
+      if (shouldFillDestination) document.getElementById('rail-destination').value = railDestinationDisplayValue(record);
+      document.getElementById('rail-station-code').value = record.stationCode || '';
+    }
+    function syncRailDestinationInputs(source) {
+      const pricingMode = document.getElementById('rail-pricing-mode').value;
+      const borderCrossing = document.getElementById('rail-border-crossing').value;
+      const destinationInput = document.getElementById('rail-destination');
+      const stationCodeInput = document.getElementById('rail-station-code');
+      const records = railDestinationRecords(borderCrossing, pricingMode);
+      const record = source === 'code'
+        ? records.find(item => normalizeRailText(item.stationCode) === normalizeRailText(stationCodeInput.value))
+        : records.find(item => destinationSearchValues(item).includes(normalizeRailText(destinationInput.value)));
+      if (!record) return;
+      if (source === 'code' && normalizeRailText(stationCodeInput.value) === normalizeRailText(record.stationCode)) {
+        destinationInput.value = railDestinationDisplayValue(record);
+      }
+      if (source === 'destination' && destinationSearchValues(record).includes(normalizeRailText(destinationInput.value))) {
+        stationCodeInput.value = record.stationCode || '';
+      }
+    }
+    function selectedRailInput() {
+      const pricingMode = document.getElementById('rail-pricing-mode').value;
+      const borderCrossing = document.getElementById('rail-border-crossing').value;
+      const rawDestination = document.getElementById('rail-destination').value;
+      const rawStationCode = document.getElementById('rail-station-code').value;
+      const destinationName = resolveRailDestinationName(rawDestination, rawStationCode, borderCrossing, pricingMode);
+      return {
+        pricingMode,
+        borderCrossing,
+        destinationName,
+        stationCodeInput: rawStationCode,
+        containerType: document.getElementById('rail-container-type').value,
+        ownership: document.getElementById('rail-ownership').value,
+        quantity: document.getElementById('rail-quantity').value,
+        boxUseFeeUsd: document.getElementById('rail-box-fee').value,
+        transitDeclarationCount: document.getElementById('rail-transit-count').value,
+        specialDocumentReview: document.getElementById('rail-special-review').checked,
+        erlianUnder55Hq: document.getElementById('rail-erlian-under55').checked,
+        shusharyVoskhod: document.getElementById('rail-shushary-voskhod').checked,
+        belarusBts: document.getElementById('rail-belarus-bts').checked,
+      };
+    }
+    function railSpotOptions() {
+      const rates = railSpotRateData && railSpotRateData.rates || [];
+      const borderCrossings = Array.from(new Set(rates.map(rate => rate.borderCrossing).filter(Boolean)));
+      const destinationsByBorder = {};
+      const containerTypesBySelection = {};
+      const ownershipsBySelection = {};
+      borderCrossings.forEach(border => {
+        destinationsByBorder[border] = Array.from(new Set(rates.filter(rate => rate.borderCrossing === border).map(rate => rate.destinationName).filter(Boolean)));
+      });
+      rates.forEach(rate => {
+        const destinationKey = railKey(rate.borderCrossing, rate.destinationName);
+        const containerKey = railKey(rate.borderCrossing, rate.destinationName, rate.containerType);
+        containerTypesBySelection[destinationKey] = Array.from(new Set([...(containerTypesBySelection[destinationKey] || []), rate.containerType]));
+        const ownerships = [];
+        if (rate.cocPriceUsd != null) ownerships.push('COC');
+        if (rate.socPriceUsd != null) ownerships.push('SOC');
+        ownerships.push(...(rate.ownerships || []));
+        ownershipsBySelection[containerKey] = Array.from(new Set([...(ownershipsBySelection[containerKey] || []), ...ownerships]));
+      });
+      return { borderCrossings, destinationsByBorder, containerTypesBySelection, ownershipsBySelection };
+    }
+    function matchingRailRate(input) {
+      return (railRateData && railRateData.rates || []).find(rate =>
+        rate.borderCrossing === input.borderCrossing &&
+        rate.destinationName === input.destinationName &&
+        rate.containerType === input.containerType &&
+        rate.ownership === input.ownership
+      );
+    }
+    function updateRailDependentControls() {
+      if (!railRateData || !railOptions) return;
+      const borderSelect = document.getElementById('rail-border-crossing');
+      const destinationInput = document.getElementById('rail-destination');
+      const stationCodeInput = document.getElementById('rail-station-code');
+      const containerSelect = document.getElementById('rail-container-type');
+      const ownershipSelect = document.getElementById('rail-ownership');
+      const input = selectedRailInput();
+      const sourceOptions = input.pricingMode === 'prediction' ? railSpotOptions() : railOptions;
+      const border = borderSelect.value;
+      if (!sourceOptions.borderCrossings.includes(border)) setSelectOptions(borderSelect, sourceOptions.borderCrossings || [], formatRailBorderCrossing);
+      const selectedBorder = borderSelect.value;
+      const records = railDestinationRecords(selectedBorder, input.pricingMode);
+      setDatalistOptions(
+        document.getElementById('rail-destination-list'),
+        records,
+        railDestinationDisplayValue,
+        record => `${record.destinationName}${record.stationCode ? ` / ${record.stationCode}` : ''}`
+      );
+      setDatalistOptions(
+        document.getElementById('rail-station-code-list'),
+        records.filter(record => record.stationCode),
+        record => record.stationCode,
+        record => railDestinationDisplayValue(record)
+      );
+      let destination = resolveRailDestinationName(destinationInput.value, stationCodeInput.value, selectedBorder, input.pricingMode);
+      if ((destinationInput.value || stationCodeInput.value) && !records.some(record => record.destinationName === destination) && records[0]) {
+        destination = records[0].destinationName;
+        destinationInput.value = railDestinationDisplayValue(records[0]);
+        stationCodeInput.value = records[0].stationCode || '';
+      }
+      setSelectOptions(containerSelect, sourceOptions.containerTypesBySelection[railKey(selectedBorder, destination)] || []);
+      const containerType = containerSelect.value;
+      setSelectOptions(ownershipSelect, sourceOptions.ownershipsBySelection[railKey(selectedBorder, destination, containerType)] || []);
+      updateRailOptionVisibility();
+    }
+    function updateRailOptionVisibility() {
+      const input = selectedRailInput();
+      document.getElementById('rail-box-fee-field').classList.toggle('hidden', input.ownership !== 'COC');
+      if (input.pricingMode === 'prediction') {
+        document.getElementById('rail-option-review').classList.add('hidden');
+        document.getElementById('rail-option-erlian').classList.add('hidden');
+        document.getElementById('rail-option-shushary').classList.add('hidden');
+        document.getElementById('rail-option-belarus').classList.add('hidden');
+        document.getElementById('rail-transit-count-field').classList.add('hidden');
+        return;
+      }
+      document.getElementById('rail-option-review').classList.toggle('hidden', !['满洲里/后贝加尔', '二连/扎门乌德'].includes(input.borderCrossing));
+      document.getElementById('rail-option-erlian').classList.toggle('hidden', input.borderCrossing !== '二连/扎门乌德' || input.containerType !== '40');
+      document.getElementById('rail-option-shushary').classList.toggle('hidden', !/Shushary/i.test(input.destinationName));
+      document.getElementById('rail-option-belarus').classList.toggle('hidden', input.containerType !== '40');
+      document.getElementById('rail-transit-count-field').classList.toggle('hidden', !['山口/Dostyk', '果斯/Altynkol'].includes(input.borderCrossing) || input.containerType !== '40');
+      if (input.borderCrossing !== '二连/扎门乌德') document.getElementById('rail-erlian-under55').checked = false;
+      if (!/Shushary/i.test(input.destinationName)) document.getElementById('rail-shushary-voskhod').checked = false;
+    }
+    function renderRailQuote(result) {
+      const rate = result.rate;
+      const analytics = RailCalculator.calculateRailAnalytics(railRateData, result);
+      const rows = [
+        { label: '基础运价', amountUsd: result.basePriceUsd },
+        ...result.adjustments,
+      ];
+      document.getElementById('rail-result').classList.remove('hidden');
+      document.getElementById('rail-route-summary').textContent = `${formatRailBorderCrossing(rate.borderCrossing)} -> ${formatRailDestinationSummary(rate)} / ${rate.containerType} / ${rate.ownership} / ${result.quantity}柜`;
+      document.getElementById('rail-total-usd').textContent = formatUsd(result.totalUsd);
+      document.getElementById('rail-analytics').innerHTML = [
+        ['线路公里', `${analytics.distanceKm.toLocaleString()} km`],
+        ['运费/公里', `$${analytics.usdPerKm.toFixed(3)} / km`],
+        ['路线系数', `${analytics.routeCoefficient}x`],
+      ].map(([label, value]) => `<div class="rail-metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('');
+      document.getElementById('rail-breakdown-body').innerHTML = rows.map(row => `<tr><td>${escapeHtml(row.label)}</td><td>${formatUsd(row.amountUsd)}</td><td>${formatUsd(row.amountUsd * result.quantity)}</td></tr>`).join('') + `<tr><th>单柜合计</th><th>${formatUsd(result.unitTotalUsd)}</th><th>${formatUsd(result.totalUsd)}</th></tr>`;
+      const meta = railRateData.meta || {};
+      document.getElementById('rail-result-meta').innerHTML = [`报价日期 ${meta.quoteDate || '-'}`, `有效期至 ${meta.validUntil || '-'}`, `币种 ${meta.currency || 'USD'}`, `汇率 ${meta.exchangeRate ?? '-'}`].map(item => `<span class="pill">${escapeHtml(item)}</span>`).join('');
+      document.getElementById('rail-rate-notes').textContent = (railRateData.notes || []).join(' ');
+      renderObservedRailRoute(analytics.observedRoute);
+      renderRailPricingStrategy({ mode: 'official', rate, result });
+      if (activeModule === 'rail') drawRailRoute(analytics.route, analytics);
+    }
+    function renderObservedRailRoute(observedRoute) {
+      const box = document.getElementById('rail-observed-route');
+      if (!box) return;
+      if (!observedRoute || !observedRoute.stationSequence || !observedRoute.stationSequence.length) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+        return;
+      }
+      const matchText = observedRoute.matchType === 'border_destination' ? '口岸+目的站匹配' : '目的站匹配';
+      box.classList.remove('hidden');
+      box.innerHTML = [
+        `<strong>真实运踪样本 · ${escapeHtml(matchText)} · ${Number(observedRoute.count || 0).toLocaleString()}柜次</strong>`,
+        `<div class="rail-observed-path">${escapeHtml(observedRoute.stationSequence.join(' -> '))}</div>`,
+        '<div class="rail-note">来源为历史运踪当前位置序列；公里差来自“剩余距离”变化，不等同官方计费里程。</div>',
+      ].join('');
+    }
+    function renderRailPricingStrategy(context) {
+      const box = document.getElementById('rail-pricing-strategy');
+      if (!box) return;
+      const contextMode = context && context.mode;
+      if (contextMode === 'official') {
+        const meta = railRateData && railRateData.meta || {};
+        box.classList.remove('hidden');
+        box.innerHTML = [
+          '<strong>定价策略</strong>',
+          '<div class="rail-strategy-grid">',
+          `<div class="rail-strategy-item"><b>价格来源</b><span>${escapeHtml(meta.operatorName || 'TransContainer')} 公共报价单</span></div>`,
+          `<div class="rail-strategy-item"><b>计算方式</b><span>按选中报价行底价 + 已勾选附加费</span></div>`,
+          '</div>',
+        ].join('');
+        return;
+      }
+      const prediction = context && context.prediction;
+      if (!prediction) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+        return;
+      }
+      const sourceMatcher = typeof RailCalculator.matchingSupplierSources === 'function'
+        ? RailCalculator.matchingSupplierSources
+        : () => [];
+      const externalSources = sourceMatcher(railSupplierSources, context.rate || {})
+        .filter(source => source.operatorCode !== 'transcontainer')
+        .map(source => source.operatorNameCn || source.operatorName)
+        .slice(0, 4)
+        .join('、');
+      const factorText = (prediction.market && prediction.market.factors || [])
+        .map(factor => `${factor.label} ${factor.multiplier}x`)
+        .slice(0, 4)
+        .join('；') || '无额外市场系数';
+      const adjustmentText = (prediction.executionAdjustments || [])
+        .map(item => `${item.label} ${formatUsd(item.amountUsd)}`)
+        .join('；') || '无执行价调整';
+      box.classList.remove('hidden');
+      box.innerHTML = [
+        '<strong>定价策略</strong>',
+        '<div class="rail-strategy-grid">',
+        `<div class="rail-strategy-item"><b>公里模型价</b><span>${formatUsd(prediction.modelBasePriceUsd)} -> 市场系数后 ${formatUsd(prediction.marketAdjustedPriceUsd)}</span></div>`,
+        `<div class="rail-strategy-item"><b>报价锚点</b><span>${prediction.publicQuotePriceUsd ? `${formatUsd(prediction.publicQuotePriceUsd)}；${adjustmentText}；锚点 ${formatUsd(prediction.anchorPriceUsd)}` : '无公共报价锚点'}</span></div>`,
+        `<div class="rail-strategy-item"><b>锚点权重</b><span>${Math.round((prediction.anchorBlendRatio || 0) * 100)}%，剩余权重使用公里模型</span></div>`,
+        `<div class="rail-strategy-item"><b>生效系数</b><span>${escapeHtml(factorText)}</span></div>`,
+        '</div>',
+        `<div class="rail-note">${externalSources ? `已记录但未纳入自动改价：${escapeHtml(externalSources)}。` : '暂无其他外部来源纳入自动改价。'}后续只有拿到 lane 级报价或官方可计算费率，才进入策略。 </div>`,
+      ].join('');
+    }
+    function renderRailPrediction(result) {
+      const rate = result.rate;
+      const prediction = result.prediction;
+      const analytics = {
+        distanceKm: result.route.distanceKm,
+        usdPerKm: prediction.usdPerKm,
+        routeCoefficient: prediction.model.slopeUsdPerKm ? Number((prediction.usdPerKm / prediction.model.slopeUsdPerKm).toFixed(3)) : 1,
+        predictionMode: true,
+        confidence: prediction.confidence,
+        observedRoute: null,
+      };
+      const rows = [
+        { label: '路线公里预测价', amountUsd: result.basePriceUsd },
+        ...result.adjustments,
+      ];
+      document.getElementById('rail-result').classList.remove('hidden');
+      document.getElementById('rail-route-summary').textContent = `${formatRailBorderCrossing(rate.borderCrossing)} -> ${formatRailDestinationSummary(rate)} / ${rate.containerType} / ${rate.ownership} / ${result.quantity}柜`;
+      document.getElementById('rail-total-usd').textContent = formatUsd(result.totalUsd);
+      document.getElementById('rail-analytics').innerHTML = [
+        ['估算线路公里', `${analytics.distanceKm.toLocaleString()} km`],
+        ['预测运费/公里', `$${analytics.usdPerKm.toFixed(3)} / km`],
+        ['预测置信度', prediction.confidence],
+      ].map(([label, value]) => `<div class="rail-metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('');
+      document.getElementById('rail-breakdown-body').innerHTML = rows.map(row => `<tr><td>${escapeHtml(row.label)}</td><td>${formatUsd(row.amountUsd)}</td><td>${formatUsd(row.amountUsd * result.quantity)}</td></tr>`).join('') + `<tr><th>单柜合计</th><th>${formatUsd(result.unitTotalUsd)}</th><th>${formatUsd(result.totalUsd)}</th></tr>`;
+      document.getElementById('rail-result-meta').innerHTML = [
+        `模型样本 ${prediction.model.sampleCount}个`,
+        `回归斜率 $${prediction.model.slopeUsdPerKm}/km`,
+        `样本报价 ${formatUsd(prediction.samplePriceUsd)}`,
+        `散点有效期至 ${prediction.validUntil || '-'}`,
+      ].map(item => `<span class="pill">${escapeHtml(item)}</span>`).join('');
+      document.getElementById('rail-rate-notes').textContent = '预测价仅使用散点报价样本和估算线路公里计算，不调用公共报价单价格；可作为内部估价参考。';
+      renderObservedRailRoute(null);
+      renderRailPricingStrategy({ mode: 'prediction', rate, prediction });
+      if (activeModule === 'rail') drawRailRoute(result.route, analytics);
+    }
+    function calculateRailFromForm() {
+      const status = document.getElementById('rail-rate-status');
+      status.classList.remove('error');
+      status.textContent = '';
+      try {
+        const input = selectedRailInput();
+        if (input.pricingMode === 'prediction') {
+          const result = RailCalculator.predictSpotRailQuote(railSpotRateData, input, railMarketFactors);
+          renderRailPrediction(result);
+        } else {
+          const result = RailCalculator.calculateRailQuote(railRateData, input);
+          renderRailQuote(result);
+        }
+      } catch (err) {
+        document.getElementById('rail-result').classList.add('hidden');
+        renderRailPricingStrategy(null);
+        status.classList.add('error');
+        status.textContent = err.message || String(err);
+      }
+    }
+    function renderRailPlaceholder() {
+      if (currentMap) { currentMap.remove(); currentMap = null; }
+      baseLayer = null;
+      railLayer = null;
+      document.getElementById('map').innerHTML = '<div class="rail-placeholder"><div class="rail-placeholder-inner"><h2>铁路运价</h2><p>按口岸、目的站、箱型和附加规则计算俄线公共报价。结果以报价单结构化数据为准，COC箱使费由业务手动输入。</p></div></div>';
+    }
+    function railMarkerIcon(label, color) {
+      return L.divIcon({
+        className: '',
+        html: `<div style="display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:${color};color:#fff;border:3px solid #fff;box-shadow:0 2px 9px rgba(15,23,42,.35);font-size:12px;font-weight:800;">${escapeHtml(label)}</div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
+      });
+    }
+    function drawRailRoute(route, analytics) {
+      if (typeof L === 'undefined') return;
+      if (!route || !route.nodes || !route.nodes.length) return;
+      if (currentMap) { currentMap.remove(); currentMap = null; }
+      baseLayer = null;
+      railLayer = null;
+      document.getElementById('map').innerHTML = '';
+      const latLngs = route.nodes.map(node => [node.lat, node.lon]);
+      const map = L.map('map', { scrollWheelZoom: true }).fitBounds(L.latLngBounds(latLngs), { padding: [42, 42] });
+      currentMap = map;
+      setBaseLayer(map);
+      railLayer = L.layerGroup().addTo(map);
+      L.polyline(latLngs, { color: '#0f766e', weight: 5, opacity: 0.92, lineCap: 'round', lineJoin: 'round' }).addTo(railLayer);
+      L.polyline(latLngs, { color: '#111827', weight: 9, opacity: 0.18, lineCap: 'round', lineJoin: 'round' }).addTo(railLayer);
+      route.nodes.forEach((node, index) => {
+        const isStart = index === 0;
+        const isEnd = index === route.nodes.length - 1;
+        const color = isStart ? '#0891b2' : isEnd ? '#dc2626' : '#64748b';
+        const label = isStart ? '口' : isEnd ? '站' : String(index);
+        const marker = L.marker([node.lat, node.lon], { icon: railMarkerIcon(label, color), zIndexOffset: isStart || isEnd ? 1200 : 900 })
+          .bindPopup(`<b>${escapeHtml(formatRailRouteName(node.name))}</b><br>${escapeHtml(node.role === 'destination' ? '目的站' : node.role === 'border' ? '换装口岸' : '通道节点')}<br>${escapeHtml(formatCoord(node.lon))}, ${escapeHtml(formatCoord(node.lat))}`)
+          .addTo(railLayer);
+        if (isStart || isEnd) {
+          marker.bindTooltip(formatRailRouteName(node.name), { permanent: true, direction: 'top', className: 'rail-map-label' });
+        }
+      });
+      const summary = L.control({ position: 'topright' });
+      summary.onAdd = function() {
+        const div = L.DomUtil.create('div', 'status');
+        const observed = analytics.observedRoute;
+        const observedHtml = observed && observed.stationSequence
+          ? `<br><b>运踪样本</b><br>${escapeHtml(observed.stationSequence.slice(0, 9).join(' -> '))}${observed.stationSequence.length > 9 ? ' ...' : ''}<br>${Number(observed.count || 0).toLocaleString()}柜次 · ${observed.matchType === 'border_destination' ? '口岸+目的站匹配' : '目的站匹配'}`
+          : '<br><b>运踪样本</b><br>暂无同目的站样本';
+        const metricHtml = analytics.predictionMode
+          ? `预测 $${analytics.usdPerKm.toFixed(3)} / km · 置信度 ${escapeHtml(analytics.confidence || '-')}`
+          : `$${analytics.usdPerKm.toFixed(3)} / km · 系数 ${analytics.routeCoefficient}x`;
+        div.innerHTML = `<b>${escapeHtml(formatRailRouteName(route.corridorName))}</b><br>线路约 ${analytics.distanceKm.toLocaleString()} km<br>${metricHtml}${observedHtml}`;
+        return div;
+      };
+      summary.addTo(map);
+      setTimeout(() => map.invalidateSize(), 180);
+    }
+    async function loadRailRates() {
+      const status = document.getElementById('rail-rate-status');
+      try {
+        const [rateResponse, spotData] = await Promise.all([
+          fetch('./data/rail-rates-2026-07-01.json'),
+          loadRailSpotRates(),
+        ]);
+        if (!rateResponse.ok) throw new Error('HTTP ' + rateResponse.status);
+        railRateData = await rateResponse.json();
+        railSpotRateData = RailCalculator.buildPredictionRateData(spotData, railRateData);
+        [railMarketFactors, railSupplierSources] = await Promise.all([loadRailMarketFactors(), loadRailSupplierSources()]);
+        railOptions = RailCalculator.availableOptions(railRateData);
+        setSelectOptions(document.getElementById('rail-border-crossing'), railOptions.borderCrossings, formatRailBorderCrossing);
+        updateRailDependentControls();
+        const meta = railRateData.meta || {};
+        document.getElementById('rail-rate-meta').textContent = `${meta.source || '报价单'} / ${meta.quoteDate || '-'} 至 ${meta.validUntil || '-'}`;
+        calculateRailFromForm();
+        ensureRailTrackingRoutes().then(() => {
+          if (activeModule === 'rail' && document.getElementById('rail-pricing-mode').value !== 'prediction') calculateRailFromForm();
+        });
+      } catch (err) {
+        status.classList.add('error');
+        status.textContent = `报价数据加载失败：${err.message || err}`;
+      }
+    }
+    async function loadRailSpotRates() {
+      try {
+        const response = await fetch('./data/rail-spot-rates-2026-05-31.json');
+        if (!response.ok) return null;
+        return await response.json();
+      } catch (_) {
+        return null;
+      }
+    }
+    async function loadRailMarketFactors() {
+      try {
+        const response = await fetch('./data/rail-market-factors-2026-07.json');
+        if (!response.ok) return null;
+        return await response.json();
+      } catch (_) {
+        return null;
+      }
+    }
+    async function loadRailSupplierSources() {
+      try {
+        const response = await fetch('./data/rail-supplier-sources-2026-07.json');
+        if (!response.ok) return null;
+        return await response.json();
+      } catch (_) {
+        return null;
+      }
+    }
+    async function ensureRailTrackingRoutes() {
+      if (railTrackingData) return railTrackingData;
+      if (!railTrackingLoadPromise) {
+        railTrackingLoadPromise = loadRailTrackingRoutes().then(data => {
+          railTrackingData = data;
+          if (railRateData) railRateData.trackingRoutes = data;
+          return data;
+        }).catch(() => null);
+      }
+      return railTrackingLoadPromise;
+    }
+    async function loadRailTrackingRoutes() {
+      try {
+        const response = await fetch('./data/rail-tracking-routes-2026-07.json');
+        if (!response.ok) return null;
+        return await response.json();
+      } catch (_) {
+        return null;
+      }
+    }
+    function bindRailRateForm() {
+      const form = document.getElementById('rail-rate-form');
+      if (!form) return;
+      const destinationInput = document.getElementById('rail-destination');
+      const stationCodeInput = document.getElementById('rail-station-code');
+      const commitRailStationInput = source => {
+        syncRailDestinationInputs(source);
+        updateRailDependentControls();
+        calculateRailFromForm();
+      };
+      ['rail-pricing-mode', 'rail-border-crossing', 'rail-destination', 'rail-station-code', 'rail-container-type', 'rail-ownership'].forEach(id => {
+        document.getElementById(id).addEventListener('change', () => {
+          if (id === 'rail-destination') syncRailDestinationInputs('destination');
+          if (id === 'rail-station-code') syncRailDestinationInputs('code');
+          updateRailDependentControls();
+          calculateRailFromForm();
+        });
+      });
+      destinationInput.addEventListener('blur', () => commitRailStationInput('destination'));
+      stationCodeInput.addEventListener('blur', () => commitRailStationInput('code'));
+      destinationInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter') commitRailStationInput('destination');
+      });
+      stationCodeInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter') commitRailStationInput('code');
+      });
+      form.addEventListener('input', () => {
+        updateRailOptionVisibility();
+        if (railRateData) calculateRailFromForm();
+      });
+      form.addEventListener('submit', event => {
+        event.preventDefault();
+        calculateRailFromForm();
+      });
+    }
+    function switchModule(moduleName) {
+      activeModule = moduleName;
+      document.querySelectorAll('.module-panel').forEach(panel => panel.classList.toggle('active', panel.id === `module-${moduleName}`));
+      document.querySelectorAll('.nav-btn').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.module === moduleName)));
+      if (moduleName === 'gps') {
+        init();
+      } else if (moduleName === 'truck') {
+        initTruckMap();
+      } else if (moduleName === 'rail') {
+        if (railRateData) calculateRailFromForm();
+        else renderRailPlaceholder();
+      }
+    }
+    function installGpsHistoryGuard() {
+      if (!window.history || !window.history.replaceState || !window.history.pushState) return;
+      const currentState = window.history.state || {};
+      if (currentState.gpsHistoryGuard) return;
+      const url = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      window.history.replaceState({ ...currentState, gpsApp: true, module: activeModule }, '', url);
+      window.history.pushState({ gpsHistoryGuard: true, module: activeModule }, '', url);
+      window.addEventListener('popstate', event => {
+        if (event.state && event.state.gpsApp) {
+          window.history.pushState({ gpsHistoryGuard: true, module: activeModule }, '', url);
+        }
+      });
+    }
+    function bindModuleNav() {
+      document.querySelectorAll('.nav-btn').forEach(button => {
+        button.addEventListener('click', () => switchModule(button.dataset.module));
+      });
+    }
+    function bindSidebarToggle() {
+      const shell = document.querySelector('.app-shell');
+      const toggle = document.getElementById('sidebar-toggle');
+      const initialCollapsed = localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true';
+      shell.classList.toggle('sidebar-collapsed', initialCollapsed);
+      toggle.setAttribute('aria-expanded', String(!initialCollapsed));
+      toggle.addEventListener('click', () => {
+        const collapsed = shell.classList.toggle('sidebar-collapsed');
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+        localStorage.setItem(SIDEBAR_STORAGE_KEY, String(collapsed));
+        setTimeout(() => currentMap && currentMap.invalidateSize(), 180);
+      });
+    }
+    function formatTruckHours(hours) {
+      if (hours == null || Number.isNaN(Number(hours))) return '-';
+      return Number(hours).toFixed(1) + ' 小时';
+    }
+    function formatTruckFreight(value) {
+      if (value == null || Number.isNaN(Number(value))) return '-';
+      return '€' + Math.round(Number(value)).toLocaleString();
+    }
+    function formatTruckNumber(value, suffix = '') {
+      if (value == null || Number.isNaN(Number(value))) return '-';
+      return Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 }) + suffix;
+    }
+    function truckFreightExplanationText(result) {
+      const model = result && result.freightModel ? result.freightModel : {};
+      const station = result && result.station ? result.station : {};
+      return [
+        `站点：${station.name || '-'}`,
+        `场站：${station.terminal || station.city || '-'}`,
+        `总距离：${formatTruckNumber(result && result.distanceKm, ' km')}`,
+        `估算卡车费：${formatTruckFreight(result && result.freightEur)}`,
+        `重柜公里：${formatTruckNumber(model.loadedKm, ' km')}`,
+        `还空公里：${formatTruckNumber(model.emptyReturnKm, ' km')}`,
+        `计费公里：${formatTruckNumber(model.billableKm, ' km')}`,
+        `线路基础：${formatTruckFreight(model.linehaulEur)}`,
+        `燃油附加：${formatTruckFreight(model.fuelSurchargeEur)}`,
+        `跨境附加：${formatTruckFreight(model.crossBorderSurchargeEur)}`,
+        `区域系数：${formatTruckNumber(model.factor)}`,
+        `说明：该价格为模型估算，不等同供应商最终报价。`
+      ].join('\n');
+    }
+    async function copyTruckFreightExplanation(index) {
+      const result = truckRoutes[index];
+      const status = document.getElementById('truck-copy-status');
+      if (!result) return;
+      try {
+        await navigator.clipboard.writeText(truckFreightExplanationText(result));
+        if (status) status.textContent = '已复制';
+      } catch (err) {
+        if (status) status.textContent = '复制失败';
+      }
+    }
+    function clearTruckLayer() {
+      if (truckLayer && currentMap) currentMap.removeLayer(truckLayer);
+      truckLayer = null;
+      truckRouteLayerRecords = [];
+    }
+    function routeLatLngs(result, destination) {
+      const station = result.station;
+      if (result.geometry && Array.isArray(result.geometry.coordinates)) {
+        return result.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+      }
+      const latLngs = [[station.lat, station.lon], [destination.lat, destination.lon]];
+      if (lastTruckReturnStation) latLngs.push([lastTruckReturnStation.lat, lastTruckReturnStation.lon]);
+      return latLngs;
+    }
+    function applyTruckRouteHighlight(selectedIndex) {
+      truckSelectedIndex = selectedIndex;
+      truckRouteLayerRecords.forEach((record, index) => {
+        const selected = index === selectedIndex;
+        record.line.setStyle({
+          color: selected ? '#0f766e' : '#64748b',
+          weight: selected ? 6 : 2,
+          opacity: selected ? 0.95 : 0.34,
+          dashArray: record.hasGeometry ? null : '8 8'
+        });
+        if (record.marker.setIcon) record.marker.setIcon(markerIcon('S', 'truck-station-icon', selected));
+      });
+      document.querySelectorAll('#truck-distance-results tr').forEach(row => {
+        row.classList.toggle('active-route', Number(row.dataset.truckIndex) === selectedIndex);
+      });
+    }
+    function focusTruckRoute(index) {
+      const result = truckRoutes[index];
+      if (!result || !currentMap || !lastTruckDestination) return;
+      applyTruckRouteHighlight(index);
+      renderTruckFreightBreakdown(result);
+      const bounds = L.latLngBounds(routeLatLngs(result, lastTruckDestination));
+      bounds.extend([result.station.lat, result.station.lon]);
+      bounds.extend([lastTruckDestination.lat, lastTruckDestination.lon]);
+      if (lastTruckReturnStation) bounds.extend([lastTruckReturnStation.lat, lastTruckReturnStation.lon]);
+      currentMap.fitBounds(bounds, { padding: [42, 42] });
+    }
+    function drawAllTruckRoutes(destination, selectedIndex = 0) {
+      if (!currentMap || typeof L === 'undefined') return;
+      clearTruckLayer();
+      truckLayer = L.layerGroup().addTo(currentMap);
+      const allBounds = L.latLngBounds([[destination.lat, destination.lon]]);
+      L.marker([destination.lat, destination.lon], { icon: markerIcon('D', 'truck-destination-icon', true), zIndexOffset: 1300 })
+        .bindPopup(`<b>门点</b><br>${escapeHtml(destination.label)}`)
+        .bindTooltip('门点', { permanent: true, direction: 'top', className: 'truck-distance-label' })
+        .addTo(truckLayer);
+      if (lastTruckReturnStation) {
+        L.marker([lastTruckReturnStation.lat, lastTruckReturnStation.lon], { icon: markerIcon('R', 'truck-return-icon'), zIndexOffset: 1200 })
+          .bindPopup(`<b>还空地</b><br>${escapeHtml(lastTruckReturnStation.name)}<br>${escapeHtml(lastTruckReturnStation.city)}`)
+          .bindTooltip('还空地', { permanent: true, direction: 'top', className: 'truck-distance-label' })
+          .addTo(truckLayer);
+        allBounds.extend([lastTruckReturnStation.lat, lastTruckReturnStation.lon]);
+      }
+
+      truckRoutes.forEach((result, index) => {
+        const station = result.station;
+        const latLngs = routeLatLngs(result, destination);
+        const line = L.polyline(latLngs, {
+          color: '#64748b',
+          weight: 2,
+          opacity: 0.34,
+          dashArray: result.geometry ? null : '8 8'
+        }).addTo(truckLayer);
+        const marker = L.marker([station.lat, station.lon], {
+          icon: markerIcon('S', 'truck-station-icon', index === selectedIndex),
+          zIndexOffset: 1000
+        }).bindPopup(`<b>${escapeHtml(station.name)}</b><br>${escapeHtml(station.terminal || station.city)}<br>${Math.round(result.distanceKm).toLocaleString()} km<br>${formatTruckFreight(result.freightEur)}`)
+          .bindTooltip(`${station.name.split(' / ')[0]} · ${Math.round(result.distanceKm).toLocaleString()} km`, { permanent: true, direction: 'top', className: 'truck-distance-label' })
+          .addTo(truckLayer);
+        marker.on('click', () => focusTruckRoute(index));
+        line.on('click', () => focusTruckRoute(index));
+        truckRouteLayerRecords.push({ line, marker, hasGeometry: Boolean(result.geometry) });
+        latLngs.forEach(point => allBounds.extend(point));
+      });
+      applyTruckRouteHighlight(selectedIndex);
+      currentMap.fitBounds(allBounds, { padding: [30, 30] });
+    }
+    function renderTruckResults(data) {
+      const body = document.getElementById('truck-distance-results');
+      const nearest = document.getElementById('truck-nearest');
+      truckRoutes = data.items || [];
+      lastTruckDestination = data.destination;
+      lastTruckReturnStation = data.returnStation || null;
+      truckSelectedIndex = 0;
+      body.innerHTML = truckRoutes.map((item, index) => `<tr data-truck-index="${index}"><td>${index + 1}</td><td><b>${escapeHtml(item.station.name)}</b><span class="truck-city">${escapeHtml(item.station.city)}</span></td><td class="truck-metric" data-label="公里">${Math.round(item.distanceKm).toLocaleString()} km</td><td class="truck-metric" data-label="时间">${formatTruckHours(item.durationHours)}</td><td class="truck-metric" data-label="卡车运费">${formatTruckFreight(item.freightEur)}</td></tr>`).join('');
+      body.querySelectorAll('tr').forEach(row => row.addEventListener('click', () => focusTruckRoute(Number(row.dataset.truckIndex))));
+      if (truckRoutes.length) {
+        nearest.textContent = `最近：${truckRoutes[0].station.name}，全程约 ${Math.round(truckRoutes[0].distanceKm).toLocaleString()} km，${formatTruckFreight(truckRoutes[0].freightEur)}`;
+        renderTruckFreightBreakdown(truckRoutes[0]);
+        drawAllTruckRoutes(data.destination, 0);
+      }
+    }
+    function renderTruckFreightBreakdown(result) {
+      const box = document.getElementById('truck-freight-breakdown');
+      if (!box || !result) return;
+      const model = result.freightModel || {};
+      const notes = (model.notes || []).slice(0, 2).map(escapeHtml).join('；');
+      const index = truckRoutes.indexOf(result);
+      box.classList.add('active');
+      box.innerHTML = `
+        <strong>${escapeHtml(result.station.name)} 运费拆解：${formatTruckFreight(result.freightEur)}</strong>
+        <div class="truck-breakdown-grid">
+          <span><b>重柜公里</b><em>${formatTruckNumber(model.loadedKm, ' km')}</em></span>
+          <span><b>还空公里</b><em>${formatTruckNumber(model.emptyReturnKm, ' km')}</em></span>
+          <span><b>计费公里</b><em>${formatTruckNumber(model.billableKm, ' km')}</em></span>
+          <span><b>公里单价</b><em>${formatTruckFreight(model.eurPerKm)}/km</em></span>
+          <span><b>线路基础</b><em>${formatTruckFreight(model.linehaulEur)}</em></span>
+          <span><b>燃油</b><em>${formatTruckFreight(model.fuelSurchargeEur)}</em></span>
+          <span><b>跨境</b><em>${formatTruckFreight(model.crossBorderSurchargeEur)}</em></span>
+          <span><b>区域系数</b><em>${formatTruckNumber(model.factor)}</em></span>
+        </div>
+        <div class="truck-breakdown-actions"><button type="button" class="truck-copy-explanation" data-copy-truck-index="${index}">复制内部说明</button><span class="truck-copy-status" id="truck-copy-status"></span></div>
+        ${notes ? `<div>${notes}</div>` : ''}
+      `;
+      const copyButton = box.querySelector('[data-copy-truck-index]');
+      if (copyButton) copyButton.addEventListener('click', () => copyTruckFreightExplanation(Number(copyButton.dataset.copyTruckIndex)));
+    }
+    function formatMarketPct(value) {
+      if (value == null) return '';
+      return `${(Number(value) * 100).toFixed(1).replace(/\.0$/, '')}%`;
+    }
+    function renderTruckMarketReferences(meta) {
+      const box = document.getElementById('truck-market-reference');
+      if (!box) return;
+      const refs = meta && meta.marketReferences ? meta.marketReferences : null;
+      if (!refs || !refs.sourceCount) {
+        box.classList.remove('active');
+        box.innerHTML = '';
+        return;
+      }
+      const fuelItems = (refs.snapshots || [])
+        .filter(item => item.metricType === 'fuel_surcharge_rate' && item.valuePct != null)
+        .slice(0, 3)
+        .map(item => `${escapeHtml(item.geographyCode || '')} ${formatMarketPct(item.valuePct)}`)
+        .join('，');
+      const capabilityCount = (refs.snapshots || []).filter(item => String(item.metricType || '').endsWith('_capability')).length;
+      box.classList.add('active');
+      box.innerHTML = `<b>市场参考</b>：${refs.sourceCount} 个来源，${refs.snapshotCount} 条快照${fuelItems ? `；燃油参考 ${fuelItems}` : ''}${capabilityCount ? `；${capabilityCount} 个在线/指数来源待接入` : ''}。`;
+    }
+    function formatMarketValue(item) {
+      if (item.valuePct != null) return formatMarketPct(item.valuePct);
+      if (item.valueMin != null || item.valueMax != null) {
+        const min = item.valueMin == null ? '' : Number(item.valueMin).toLocaleString();
+        const max = item.valueMax == null ? '' : Number(item.valueMax).toLocaleString();
+        return `${item.currency || ''} ${min}${max ? '-' + max : ''} ${item.unit || ''}`.trim();
+      }
+      return item.metricType && String(item.metricType).endsWith('_capability') ? '待接入' : '-';
+    }
+    function filterMarketReferenceRows() {
+      const select = document.getElementById('market-reference-filter');
+      const value = select ? select.value : '';
+      document.querySelectorAll('#market-reference-results tr').forEach(row => {
+        row.style.display = !value || row.dataset.metricType === value ? '' : 'none';
+      });
+    }
+    async function renderMarketReferenceModule() {
+      const status = document.getElementById('market-reference-status');
+      const summary = document.getElementById('market-reference-summary');
+      const body = document.getElementById('market-reference-results');
+      const filter = document.getElementById('market-reference-filter');
+      if (!status || !summary || !body || !filter) return;
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/truck-market-references`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
+        status.textContent = `已读取 ${data.sourceCount} 个来源，${data.snapshotCount} 条快照`;
+        summary.innerHTML = `<b>用途</b>：这些数据只做外部锚点和解释，不自动改卡车运费。`;
+        const sourceNames = new Map((data.sources || []).map(source => [source.sourceKey, source.sourceName]));
+        const metricTypes = [...new Set((data.snapshots || []).map(item => item.metricType).filter(Boolean))].sort();
+        filter.innerHTML = '<option value="">全部</option>' + metricTypes.map(type => `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`).join('');
+        filter.onchange = filterMarketReferenceRows;
+        body.innerHTML = (data.snapshots || []).map(item => `
+          <tr data-metric-type="${escapeHtml(item.metricType || '')}">
+            <td>${escapeHtml(sourceNames.get(item.sourceKey) || item.sourceKey)}</td>
+            <td>${escapeHtml(item.metricType || '')}<br><span class="truck-city">${escapeHtml(item.confidence || '')}</span></td>
+            <td>${escapeHtml(formatMarketValue(item))}</td>
+            <td>${escapeHtml(item.note || '')}</td>
+          </tr>
+        `).join('');
+        filterMarketReferenceRows();
+      } catch (err) {
+        status.textContent = '市场参考加载失败';
+        body.innerHTML = `<tr><td colspan="4">${escapeHtml(err.message || err)}</td></tr>`;
+      }
+    }
+    async function loadTruckReturnStations() {
+      const select = document.getElementById('truck-return-station');
+      if (!select) return;
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/truck-stations`);
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const data = await response.json();
+        select.innerHTML = '<option value="">不还空</option>' + (data.items || []).map(station => `<option value="${escapeHtml(station.slug)}">${escapeHtml(station.name)}</option>`).join('');
+      } catch (err) {
+        select.innerHTML = '<option value="">站点加载失败</option>';
+      }
+    }
+    function bindTruckStationGroupControls() {
+      document.querySelectorAll('[data-station-group]').forEach(button => {
+        button.addEventListener('click', () => {
+          document.querySelectorAll('[data-station-group]').forEach(item => {
+            item.setAttribute('aria-pressed', String(item === button));
+          });
+        });
+      });
+    }
+    function selectedTruckStationGroup() {
+      const active = document.querySelector('[data-station-group][aria-pressed="true"]');
+      return active ? active.dataset.stationGroup : 'auto';
+    }
+    function setTruckStationGroupDisabled(disabled) {
+      document.querySelectorAll('[data-station-group]').forEach(button => {
+        button.disabled = disabled;
+      });
+    }
+    function stationGroupLabel(value) {
+      return {
+        all: '全部',
+        auto: '自动',
+        europe: '欧洲',
+        central_asia: '中亚',
+        russia: '俄罗斯',
+        belarus: '白罗斯'
+      }[value] || value || '自动';
+    }
+    function bindTruckDistanceForm() {
+      const form = document.getElementById('truck-distance-form');
+      const input = document.getElementById('truck-address-input');
+      const returnSelect = document.getElementById('truck-return-station');
+      const button = document.getElementById('truck-distance-button');
+      const status = document.getElementById('truck-distance-status');
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const address = input.value.trim();
+        if (!address) return;
+        status.classList.remove('error');
+        status.textContent = '正在解析地址并计算路线...';
+        button.disabled = true;
+        if (returnSelect) returnSelect.disabled = true;
+        setTruckStationGroupDisabled(true);
+        try {
+          const params = new URLSearchParams({ address });
+          const returnStation = returnSelect ? returnSelect.value : '';
+          const stationGroup = selectedTruckStationGroup();
+          if (returnStation) params.set('return_station', returnStation);
+          params.set('station_group', stationGroup);
+          const response = await fetch(`${apiBaseUrl}/api/truck-distance?${params.toString()}`);
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
+          renderTruckResults(data);
+          renderTruckMarketReferences(data.meta);
+          const groupText = stationGroupLabel(data.meta.stationGroup);
+          status.textContent = `完成：${data.meta.stationCount} 个站点，区域：${groupText}，${data.returnStation ? '含还空地' : '门点结束'}，${data.destination.source === 'coordinates' ? '坐标定位' : '地址定位'}`;
+        } catch (err) {
+          status.classList.add('error');
+          status.textContent = `计算失败：${err.message || err}`;
+        } finally {
+          button.disabled = false;
+          if (returnSelect) returnSelect.disabled = false;
+          setTruckStationGroupDisabled(false);
+        }
+      });
+    }
+    function init() {
+      initHeader();
+      if (currentMap) { currentMap.remove(); currentMap = null; }
+      baseLayer = null;
+      document.getElementById('map').innerHTML = '';
+      if (typeof L === 'undefined') { document.getElementById('map').innerHTML = '<div style="padding:16px;color:#b91c1c;">地图脚本没有加载成功，请检查网络或刷新页面。</div>'; return; }
+      const canvasRenderer = L.canvas({ padding: 0.5 });
+      const map = L.map('map', { preferCanvas: true, scrollWheelZoom: true, renderer: canvasRenderer });
+      currentMap = map;
+      setBaseLayer(map);
+      const latlngs = points.map(p => [p.lat, p.lon]);
+      L.polyline(latlngs, { renderer: canvasRenderer, color: '#111827', weight: 8, opacity: 0.34, lineCap: 'round', lineJoin: 'round' }).addTo(map);
+      for (let i = 1; i < points.length; i++) { const prev = points[i - 1]; const cur = points[i]; L.polyline([[prev.lat, prev.lon], [cur.lat, cur.lon]], { renderer: canvasRenderer, color: colors[cur.countryCode] || '#1f6feb', weight: 5, opacity: 0.96, lineCap: 'round', lineJoin: 'round' }).addTo(map); }
+      points.forEach((p, i) => {
+        const isStart = i === 0; const isEnd = i === points.length - 1;
+        const marker = L.circleMarker([p.lat, p.lon], { renderer: canvasRenderer, radius: isStart || isEnd ? 7 : 4.5, color: isStart || isEnd ? '#111827' : '#ffffff', weight: isStart || isEnd ? 2.5 : 1.7, fillColor: isStart ? '#138a36' : isEnd ? '#111827' : (colors[p.countryCode] || '#1f6feb'), fillOpacity: 0.96 }).bindPopup(popupHtml(p, '点击点位后会查询具体地理位置。')).addTo(map);
+        marker.on('click', () => enrichPopup(marker, p));
+      });
+      const borderIcon = L.divIcon({ className: '', html: '<div style="width:18px;height:18px;background:#0891b2;border:3px solid #fff;box-shadow:0 0 0 2px rgba(21,94,117,.85),0 3px 9px rgba(0,0,0,.25);transform:rotate(45deg);"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+      borderCrossings.filter(item => item.lat != null && item.lon != null).forEach(border => {
+        const name = border.matchedPortShortName || `${border.fromCountryCode}-${border.toCountryCode}`;
+        const confidence = border.confidence == null ? '-' : Math.round(Number(border.confidence) * 100) + '%';
+        L.marker([border.lat, border.lon], { icon: borderIcon, zIndexOffset: 1100 }).bindPopup(`<div class="border-popup"><h2>${escapeHtml(name)}</h2><p><b>穿越：</b>${escapeHtml(border.fromCountry)} → ${escapeHtml(border.toCountry)}</p><p><b>时间：</b>${escapeHtml(formatTime(border.crossingTime))}</p><p><b>轨迹点：</b>${escapeHtml(border.fromPoint)} → ${escapeHtml(border.toPoint)}</p><p><b>匹配口岸：</b>${escapeHtml(border.matchedPortShortName || border.matchedPortName || '疑似边境通道')}</p><p><b>口岸距离：</b>${border.matchedDistanceKm == null ? '-' : escapeHtml(border.matchedDistanceKm) + ' km'}</p><p><b>置信度：</b>${confidence}</p><p>${escapeHtml(border.note || '')}</p><p><b>坐标：</b>${escapeHtml(formatCoord(border.lon))}, ${escapeHtml(formatCoord(border.lat))}</p></div>`).addTo(map);
+        L.marker([border.lat, border.lon], { icon: L.divIcon({ className: 'border-label', html: escapeHtml(name), iconAnchor: [-14, -14] }), interactive: false, zIndexOffset: 1000 }).addTo(map);
+      });
+      map.fitBounds(L.latLngBounds(latlngs), { padding: [32, 32] });
+      if (removedPoints.length) { const box = L.control({ position: 'topright' }); box.onAdd = function() { const div = L.DomUtil.create('div', 'removed-box'); const p = removedPoints[0]; div.innerHTML = `<b>已剔除漂移点</b><br>原始第 ${p.idx} 点：${formatTime(p.time)}<br>${formatCoord(p.lon)}, ${formatCoord(p.lat)}<br>前段 ${p.prevSpeed} km/h，后段 ${p.nextSpeed} km/h，绕行 ${p.detourRatio}x`; return div; }; box.addTo(map); }
+      const legend = L.control({ position: 'bottomright' }); legend.onAdd = function() { const div = L.DomUtil.create('div', 'legend'); div.innerHTML = '<div><span class="swatch start"></span>起点</div><div><span class="swatch cn"></span>中国段</div><div><span class="swatch kz"></span>哈萨克斯坦段</div><div><span class="swatch ru"></span>俄罗斯段</div><div><span class="swatch by"></span>白俄罗斯段</div><div><span class="swatch pl"></span>波兰段</div><div><span class="swatch border"></span>自动边境</div><div><span class="swatch end"></span>终点</div>'; return div; }; legend.addTo(map);
+      setTimeout(() => map.invalidateSize(), 200);
+    }
+    window.addEventListener('error', event => { const mapEl = document.getElementById('map'); if (mapEl && !mapEl.classList.contains('leaflet-container')) { mapEl.innerHTML = '<div style="padding:16px;color:#b91c1c;">页面脚本错误：' + escapeHtml(event.message) + '</div>'; } });
+    bindTruckStationGroupControls();
+    bindTruckDistanceForm();
+    bindRailRateForm();
+    bindModuleNav();
+    bindSidebarToggle();
+        bindMapProviderControls();
+    bindTileCacheControls();
+        loadTruckReturnStations();
+    renderMarketReferenceModule();
+    loadRailRates();
+    initTruckMap();
+  </script>
+</body>
+</html>

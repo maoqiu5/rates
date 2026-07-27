@@ -1,0 +1,42 @@
+# Dependencies and package stores
+node_modules/
+.pnpm-store/
+
+# Codex and temporary workspaces
+.codex/
+.codex-*/
+.work/
+.worktrees/
+worktrees/
+.engramory-memory/
+
+# Runtime, production, and private data
+data/
+logs/
+runtime/
+backups/
+secrets/
+
+# Environment files
+.env
+.env.*
+!.env.production.example
+
+# SQLite databases and sidecars
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.db-shm
+*.db-wal
+
+# Backups and pre-change snapshots
+*.bak
+*.backup-*
+*.pre-*
+
+# Python and OS/editor noise
+__pycache__/
+*.py[cod]
+.DS_Store
+Thumbs.db
