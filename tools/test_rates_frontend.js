@@ -21,7 +21,12 @@ if (html.includes('prediction.publicQuotePriceUsd')) throw new Error('frontend m
 if (html.includes('prediction.anchorPriceUsd')) throw new Error('frontend must not display blended anchor price');
 if (html.includes('prediction.anchorBlendRatio')) throw new Error('frontend must not display quote anchor weight');
 if (html.includes('不调用公共报价单价格')) throw new Error('frontend must not claim quote anchors are unused');
-if (!html.includes('supplierStrategyPrices')) throw new Error('supplier strategy simulated prices missing');
+if (html.includes('supplierStrategyPrices')) throw new Error('frontend must not expose synthetic supplier strategy prices');
+if (html.includes('供应商策略价为模拟价')) throw new Error('frontend must not show simulated supplier prices as strategy prices');
+if (html.includes('factor: 0.98') || html.includes('factor: 1.02') || html.includes('factor: 1.04')) throw new Error('frontend must not contain unevidenced supplier price factors');
+if (!html.includes('公开信息采集状态')) throw new Error('supplier public source status panel missing');
+if (!html.includes('可定价依据')) throw new Error('supplier pricing evidence classification missing');
+if (!html.includes('暂无供应商实盘价')) throw new Error('supplier real-quote absence note missing');
 
 const inlineScripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
 inlineScripts.forEach((script, index) => new vm.Script(script, { filename: `inline-${index}.js` }));

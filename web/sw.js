@@ -1,4 +1,4 @@
-﻿const STATIC_CACHE = "rates-static-v2";
+const STATIC_CACHE = "rates-static-v3";
 const TILE_CACHE = "rates-tiles-v1";
 const STATIC_ASSETS = [
   "./",
@@ -54,5 +54,3 @@ self.addEventListener("fetch", event => {
     );
   }
 });
-
-

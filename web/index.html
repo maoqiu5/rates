@@ -853,33 +853,55 @@
         '<div class="rail-note">来源为历史运踪当前位置序列；公里差来自“剩余距离”变化，不等同官方计费里程。</div>',
       ].join('');
     }
-    function supplierStrategyPrices(context, sources) {
-      const basePriceUsd = Number(context && context.basePriceUsd) || 0;
-      if (!basePriceUsd) return [];
-      const allowed = new Set(['fesco', 'rzd_logistics', 'transsinergia', 'sinotrans']);
-      const strategy = {
-        fesco: { factor: 0.98, label: '班列/承运人竞争策略', confidence: '中' },
-        rzd_logistics: { factor: 1.02, label: '俄铁体系服务策略', confidence: '中' },
-        transsinergia: { factor: 1.00, label: '公开费率参考策略', confidence: '中' },
-        sinotrans: { factor: 1.04, label: '中国侧综合服务策略', confidence: '低' },
+    function supplierPricingEvidenceLevel(source) {
+      const available = new Set(source && source.dataAvailable || []);
+      if (source && source.autoPricing) return '可定价依据';
+      if (available.has('published_rates_page') || available.has('published_transit_rate_pdf') || available.has('public_tariff_page')) return '待抽取费率';
+      if ((source && source.usage) === 'market_signal' || (source && source.sourceType || '').includes('news') || available.has('rate_change_news') || available.has('index')) return '市场信号';
+      return '服务能力';
+    }
+    function supplierDataAvailableLabel(key) {
+      const labels = {
+        public_tariff_page: '公开费率入口',
+        published_rates_page: '公开费率页',
+        published_transit_rate_pdf: '公开过境费率文件',
+        landborder_service_map: '陆路口岸服务网络',
+        service_news: '服务新闻',
+        operator_scope: '承运范围',
+        service_capability: '服务能力',
+        market_news: '市场新闻',
+        rate_change_news: '涨跌新闻',
+        index: '市场指数',
+        service_scope: '服务范围',
+        trainload_minimum: '整列门槛',
       };
+      return labels[key] || key;
+    }
+    function renderSupplierPublicSourceStatus(context, sources) {
       const allSources = sources && sources.sources || [];
-      return allSources
-        .filter(source => allowed.has(source.operatorCode))
-        .sort((a, b) => ['fesco', 'rzd_logistics', 'transsinergia', 'sinotrans'].indexOf(a.operatorCode) - ['fesco', 'rzd_logistics', 'transsinergia', 'sinotrans'].indexOf(b.operatorCode))
-        .map(source => {
-          const rule = strategy[source.operatorCode] || { factor: 1, label: '供应商参考策略', confidence: source.confidence || '低' };
-          const borders = source.borderCrossings || [];
-          const borderMatched = borders.includes('*') || borders.includes(context.rate && context.rate.borderCrossing);
-          return {
-            operatorCode: source.operatorCode,
-            operatorName: source.operatorNameCn || source.operatorName,
-            priceUsd: Math.max(0, Math.round(basePriceUsd * rule.factor)),
-            factor: rule.factor,
-            confidence: rule.confidence || source.confidence || '低',
-            label: borderMatched ? rule.label : `${rule.label}（泛参考）`,
-          };
-        });
+      const preferredOrder = ['fesco', 'rzd_logistics', 'transsinergia', 'sinotrans', 'utlc_era', 'rzd_partner'];
+      const selectedSources = allSources
+        .filter(source => preferredOrder.includes(source.operatorCode))
+        .sort((a, b) => preferredOrder.indexOf(a.operatorCode) - preferredOrder.indexOf(b.operatorCode));
+      if (!selectedSources.length) {
+        return '<div class="rail-note">公开信息采集状态：暂无供应商公开来源记录；暂无供应商实盘价。</div>';
+      }
+      const rows = selectedSources.map(source => {
+        const borders = source.borderCrossings || [];
+        const borderMatched = borders.includes('*') || borders.includes(context.rate && context.rate.borderCrossing);
+        const level = supplierPricingEvidenceLevel(source);
+        const status = source.autoPricing ? '可进入自动改价' : '仅记录，不改写主报价';
+        const scope = borderMatched ? '匹配当前换装口岸或通用范围' : '未匹配当前换装口岸，仅作泛参考';
+        const dataText = (source.dataAvailable || []).slice(0, 3).map(supplierDataAvailableLabel).join('、') || '-';
+        return `<div class="rail-strategy-item"><b>${escapeHtml(source.operatorNameCn || source.operatorName)}</b><span>${escapeHtml(level)} / ${escapeHtml(source.confidence || 'low')}<br>${escapeHtml(status)}；${escapeHtml(scope)}<br>${escapeHtml(dataText)}</span></div>`;
+      }).join('');
+      return [
+        '<strong>公开信息采集状态</strong>',
+        '<div class="rail-strategy-grid">',
+        rows,
+        '</div>',
+        '<div class="rail-note">暂无供应商实盘价：FESCO、俄铁物流、TransSinergia、中国外运等公开页面目前只作为可定价依据、市场信号或服务能力分类；未抽取到 lane 级金额、有效期、箱型和口岸规则前，不生成策略后价格。</div>',
+      ].join('');
     }
     function renderRailPricingStrategy(context) {
       const box = document.getElementById('rail-pricing-strategy');
@@ -915,15 +937,7 @@
         .map(factor => `${factor.label} ${factor.multiplier}x`)
         .slice(0, 4)
         .join('；') || '无额外市场系数';
-      const strategyRows = supplierStrategyPrices(context, railSupplierSources);
-      const strategyHtml = strategyRows.length
-        ? [
-          '<strong>供应商策略参考价</strong>',
-          '<div class="rail-strategy-grid">',
-          ...strategyRows.map(item => `<div class="rail-strategy-item"><b>${escapeHtml(item.operatorName)}</b><span>${formatUsd(item.priceUsd)} / ${item.factor.toFixed(2)}x / 可信度${escapeHtml(item.confidence)}<br>${escapeHtml(item.label)}</span></div>`),
-          '</div>',
-        ].join('')
-        : '<div class="rail-note">暂无匹配供应商策略参考价。</div>';
+      const sourceStatusHtml = renderSupplierPublicSourceStatus(context, railSupplierSources);
       box.classList.remove('hidden');
       box.innerHTML = [
         '<strong>定价策略</strong>',
@@ -933,8 +947,7 @@
         '<div class="rail-strategy-item"><b>结果性质</b><span>内部参考价，需业务复核</span></div>',
         `<div class="rail-strategy-item"><b>生效系数</b><span>${escapeHtml(factorText)}</span></div>`,
         '</div>',
-        strategyHtml,
-        '<div class="rail-note">供应商策略价为模拟价，非供应商实盘报价；不会自动改写主报价。</div>',
+        sourceStatusHtml,
         `<div class="rail-note">${externalSources ? `已记录但未纳入自动改价：${escapeHtml(externalSources)}。` : '暂无其他外部来源纳入自动改价。'}后续只有拿到 lane 级报价或官方可计算费率，才进入策略。 </div>`,
       ].join('');
     }
