@@ -853,6 +853,34 @@
         '<div class="rail-note">来源为历史运踪当前位置序列；公里差来自“剩余距离”变化，不等同官方计费里程。</div>',
       ].join('');
     }
+    function supplierStrategyPrices(context, sources) {
+      const basePriceUsd = Number(context && context.basePriceUsd) || 0;
+      if (!basePriceUsd) return [];
+      const allowed = new Set(['fesco', 'rzd_logistics', 'transsinergia', 'sinotrans']);
+      const strategy = {
+        fesco: { factor: 0.98, label: '班列/承运人竞争策略', confidence: '中' },
+        rzd_logistics: { factor: 1.02, label: '俄铁体系服务策略', confidence: '中' },
+        transsinergia: { factor: 1.00, label: '公开费率参考策略', confidence: '中' },
+        sinotrans: { factor: 1.04, label: '中国侧综合服务策略', confidence: '低' },
+      };
+      const allSources = sources && sources.sources || [];
+      return allSources
+        .filter(source => allowed.has(source.operatorCode))
+        .sort((a, b) => ['fesco', 'rzd_logistics', 'transsinergia', 'sinotrans'].indexOf(a.operatorCode) - ['fesco', 'rzd_logistics', 'transsinergia', 'sinotrans'].indexOf(b.operatorCode))
+        .map(source => {
+          const rule = strategy[source.operatorCode] || { factor: 1, label: '供应商参考策略', confidence: source.confidence || '低' };
+          const borders = source.borderCrossings || [];
+          const borderMatched = borders.includes('*') || borders.includes(context.rate && context.rate.borderCrossing);
+          return {
+            operatorCode: source.operatorCode,
+            operatorName: source.operatorNameCn || source.operatorName,
+            priceUsd: Math.max(0, Math.round(basePriceUsd * rule.factor)),
+            factor: rule.factor,
+            confidence: rule.confidence || source.confidence || '低',
+            label: borderMatched ? rule.label : `${rule.label}（泛参考）`,
+          };
+        });
+    }
     function renderRailPricingStrategy(context) {
       const box = document.getElementById('rail-pricing-strategy');
       if (!box) return;
@@ -887,18 +915,26 @@
         .map(factor => `${factor.label} ${factor.multiplier}x`)
         .slice(0, 4)
         .join('；') || '无额外市场系数';
-      const adjustmentText = (prediction.executionAdjustments || [])
-        .map(item => `${item.label} ${formatUsd(item.amountUsd)}`)
-        .join('；') || '无执行价调整';
+      const strategyRows = supplierStrategyPrices(context, railSupplierSources);
+      const strategyHtml = strategyRows.length
+        ? [
+          '<strong>供应商策略参考价</strong>',
+          '<div class="rail-strategy-grid">',
+          ...strategyRows.map(item => `<div class="rail-strategy-item"><b>${escapeHtml(item.operatorName)}</b><span>${formatUsd(item.priceUsd)} / ${item.factor.toFixed(2)}x / 可信度${escapeHtml(item.confidence)}<br>${escapeHtml(item.label)}</span></div>`),
+          '</div>',
+        ].join('')
+        : '<div class="rail-note">暂无匹配供应商策略参考价。</div>';
       box.classList.remove('hidden');
       box.innerHTML = [
         '<strong>定价策略</strong>',
         '<div class="rail-strategy-grid">',
         `<div class="rail-strategy-item"><b>公里模型价</b><span>${formatUsd(prediction.modelBasePriceUsd)} -> 市场系数后 ${formatUsd(prediction.marketAdjustedPriceUsd)}</span></div>`,
-        `<div class="rail-strategy-item"><b>报价锚点</b><span>${prediction.publicQuotePriceUsd ? `${formatUsd(prediction.publicQuotePriceUsd)}；${adjustmentText}；锚点 ${formatUsd(prediction.anchorPriceUsd)}` : '无公共报价锚点'}</span></div>`,
-        `<div class="rail-strategy-item"><b>锚点权重</b><span>${Math.round((prediction.anchorBlendRatio || 0) * 100)}%，剩余权重使用公里模型</span></div>`,
+        '<div class="rail-strategy-item"><b>内部校准</b><span>已应用；敏感报价明细不在页面展示</span></div>',
+        '<div class="rail-strategy-item"><b>结果性质</b><span>内部参考价，需业务复核</span></div>',
         `<div class="rail-strategy-item"><b>生效系数</b><span>${escapeHtml(factorText)}</span></div>`,
         '</div>',
+        strategyHtml,
+        '<div class="rail-note">供应商策略价为模拟价，非供应商实盘报价；不会自动改写主报价。</div>',
         `<div class="rail-note">${externalSources ? `已记录但未纳入自动改价：${escapeHtml(externalSources)}。` : '暂无其他外部来源纳入自动改价。'}后续只有拿到 lane 级报价或官方可计算费率，才进入策略。 </div>`,
       ].join('');
     }
@@ -932,9 +968,9 @@
         `样本报价 ${formatUsd(prediction.samplePriceUsd)}`,
         `散点有效期至 ${prediction.validUntil || '-'}`,
       ].map(item => `<span class="pill">${escapeHtml(item)}</span>`).join('');
-      document.getElementById('rail-rate-notes').textContent = '预测价仅使用散点报价样本和估算线路公里计算，不调用公共报价单价格；可作为内部估价参考。';
+      document.getElementById('rail-rate-notes').textContent = '预测价已做内部校准并隐藏敏感报价明细；仅作为内部估价参考。';
       renderObservedRailRoute(null);
-      renderRailPricingStrategy({ mode: 'prediction', rate, prediction });
+      renderRailPricingStrategy({ mode: 'prediction', rate, prediction, basePriceUsd: result.basePriceUsd });
       if (activeModule === 'rail') drawRailRoute(result.route, analytics);
     }
     function calculateRailFromForm() {

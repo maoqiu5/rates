@@ -1,4 +1,4 @@
-﻿const STATIC_CACHE = "rates-static-v1";
+﻿const STATIC_CACHE = "rates-static-v2";
 const TILE_CACHE = "rates-tiles-v1";
 const STATIC_ASSETS = [
   "./",
@@ -23,7 +23,7 @@ self.addEventListener("activate", event => {
   event.waitUntil(
     caches
       .keys()
-      .then(keys => Promise.all(keys.filter(key => key.startsWith("gps-static-") && key !== STATIC_CACHE).map(key => caches.delete(key))))
+      .then(keys => Promise.all(keys.filter(key => key.startsWith("rates-static-") && key !== STATIC_CACHE).map(key => caches.delete(key))))
       .then(() => self.clients.claim())
   );
 });
@@ -54,4 +54,5 @@ self.addEventListener("fetch", event => {
     );
   }
 });
+
 

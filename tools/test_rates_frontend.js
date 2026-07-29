@@ -17,6 +17,11 @@ if (!html.includes('id="truck-distance-results"')) throw new Error('full truck d
 if (!html.includes('id="rail-pricing-mode"')) throw new Error('rail prediction/public quote mode missing');
 if (!html.includes('RailCalculator.buildPredictionRateData')) throw new Error('rail prediction stations should include public quote anchors');
 if (!html.includes('function drawRailRoute')) throw new Error('rail route map renderer missing');
+if (html.includes('prediction.publicQuotePriceUsd')) throw new Error('frontend must not display public quote anchor price');
+if (html.includes('prediction.anchorPriceUsd')) throw new Error('frontend must not display blended anchor price');
+if (html.includes('prediction.anchorBlendRatio')) throw new Error('frontend must not display quote anchor weight');
+if (html.includes('不调用公共报价单价格')) throw new Error('frontend must not claim quote anchors are unused');
+if (!html.includes('supplierStrategyPrices')) throw new Error('supplier strategy simulated prices missing');
 
 const inlineScripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
 inlineScripts.forEach((script, index) => new vm.Script(script, { filename: `inline-${index}.js` }));
