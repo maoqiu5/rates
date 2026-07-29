@@ -1,42 +1,58 @@
-# Dependencies and package stores
-node_modules/
-.pnpm-store/
+# Rates project ignores
 
-# Codex and temporary workspaces
-.codex/
-.codex-*/
-.work/
-.worktrees/
-worktrees/
+# Project-local agent memory
 .engramory-memory/
 
-# Runtime, production, and private data
-data/
-logs/
-runtime/
-backups/
-secrets/
-
-# Environment files
+# Real environment and secret files
 .env
 .env.*
+*.env
+*.env.*
+!.env.example
 !.env.production.example
+!*.env.example
+!*.env.production.example
 
-# SQLite databases and sidecars
-*.sqlite
-*.sqlite-shm
-*.sqlite-wal
+# Secrets and credentials
+secrets/
+**/secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+
+# Persistent data and backups
+data/
+backups/
+runtime/
+logs/
+**/data/
+**/backups/
+**/runtime/
+**/logs/
+
+# SQLite/database files
 *.db
-*.db-shm
-*.db-wal
+*.db-*
+*.sqlite
+*.sqlite3
 
-# Backups and pre-change snapshots
-*.bak
-*.backup-*
-*.pre-*
-
-# Python and OS/editor noise
+# Dependencies and build/cache output
+node_modules/
+.venv/
+venv/
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.pnpm-store/
+dist/
+build/
+.cache/
+
+# OS/editor noise
 .DS_Store
 Thumbs.db
+*.swp
+*.swo

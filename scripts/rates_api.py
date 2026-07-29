@@ -137,6 +137,7 @@ TRUCK_STATIONS = [
     {"slug": "tashkent-chukursay", "name": "Tashkent Chukursay / 塔什干丘库尔赛", "city": "Tashkent, Uzbekistan", "countryCode": "UZ", "stationGroup": "central_asia", "terminal": "Chukursay railway station / customs terminal", "address": "Chukursay railway station, Tashkent, Uzbekistan", "lat": 41.38828, "lon": 69.23332, "sourceNote": "OSM/Mapcarta station coordinates; UNECE station listing cross-check"},
     {"slug": "aktau-port", "name": "Aktau Port / 阿克套港", "city": "Aktau, Kazakhstan", "countryCode": "KZ", "stationGroup": "central_asia", "terminal": "Aktau International Sea Commercial Port", "address": "Port of Aktau, Aktau, Kazakhstan", "lat": 43.6465, "lon": 51.1638, "sourceNote": "Wikidata/port coordinate reference cross-check"},
     {"slug": "tbilisi", "name": "Tbilisi / 第比利斯", "city": "Tbilisi, Georgia", "countryCode": "GE", "stationGroup": "central_asia", "terminal": "Tbilisi Dry Port", "address": "Tbilisi Dry Port, Tbilisi, Georgia", "lat": 41.6634026, "lon": 44.9137714, "sourceNote": "Tbilisi Dry Port public location reference"},
+    {"slug": "krugloe-pole-siding", "name": "Krugloe Pole private siding / 克鲁格洛耶波列专用线", "city": "Krugloe Pole, Republic of Tatarstan, Russia", "countryCode": "RU", "stationGroup": "russia", "terminal": "Krugloe Pole station private siding", "address": "Krugloe Pole station, Tukayevsky District, Republic of Tatarstan, Russia", "lat": 55.619347, "lon": 52.172053, "sourceNote": "Alta-Soft freight station directory ECP 64840; public map coordinate cross-check"},
 ]
 
 PORT_DEFINITIONS = [
@@ -800,7 +801,7 @@ def truck_geocode_candidates(address: str) -> list[str]:
         r"\bORS\.\s*": "",
         r"\bStr\.\s*": "Strada ",
         r"\bNr\.?\s*": "",
-        r"\bBI\.?\s*": "",
+        r"\bBI\.\s*": "",
         r"\bBl\.?\s*": "",
         r"\bHala\s*\d+\b": "",
         r"\.?\blocatia\s*\d+\b": "",
@@ -836,6 +837,15 @@ def truck_geocode_candidates(address: str) -> list[str]:
         append_candidate(candidates, f"Sos. Oltenitei nr. {number.upper()}, {postcode} {city_ascii}, Ilfov, Romania")
         append_candidate(candidates, f"Șoseaua Olteniței {number.upper()}, Popești-Leordeni, Ilfov, Romania")
         append_candidate(candidates, f"CTPark Bucharest South, Oltenitei 249, Popesti-Leordeni, Romania")
+    if (
+        "TATARSTAN" in upper
+        and ("ETHYLENE 600" in upper or "BIKLYANSKOYE" in upper or "TUKAYEVSKY" in upper)
+    ):
+        append_candidate(candidates, "Ethylene 600 Industrial Park, Biklyanskoye, Tukayevsky District, Tatarstan, Russia")
+        append_candidate(candidates, "Deng Xiaoping Logistics Complex, Ethylene 600 Industrial Park, Tatarstan, Russia")
+        append_candidate(candidates, "Biklyanskoye Rural Settlement, Tukayevsky District, Republic of Tatarstan, Russia")
+        append_candidate(candidates, "Индустриальный парк Этилен 600, Биклянское сельское поселение, Тукаевский район, Татарстан, Россия")
+        append_candidate(candidates, "Логистический комплекс имени Дэн Сяопина, Республика Татарстан, Россия")
     return candidates
 
     cleaned = " ".join(address.replace("\u00a0", " ").replace("\n", " ").split())
@@ -946,6 +956,15 @@ def geocode_address(address: str) -> dict[str, Any]:
             "lat": 45.6877,
             "lon": 25.51944,
             "countryCode": "RO",
+            "source": "known-fallback",
+            "query": tried[-1] if tried else address,
+        }
+    if "TATARSTAN" in upper and ("ETHYLENE 600" in upper or "BIKLYANSKOYE" in upper or "TUKAYEVSKY" in upper):
+        return {
+            "label": "Ethylene 600 Industrial Park / Deng Xiaoping Logistics Complex, Tatarstan, Russia",
+            "lat": 55.59,
+            "lon": 52.12,
+            "countryCode": "RU",
             "source": "known-fallback",
             "query": tried[-1] if tried else address,
         }
