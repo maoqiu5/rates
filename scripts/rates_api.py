@@ -846,6 +846,15 @@ def truck_geocode_candidates(address: str) -> list[str]:
         append_candidate(candidates, "Biklyanskoye Rural Settlement, Tukayevsky District, Republic of Tatarstan, Russia")
         append_candidate(candidates, "Индустриальный парк Этилен 600, Биклянское сельское поселение, Тукаевский район, Татарстан, Россия")
         append_candidate(candidates, "Логистический комплекс имени Дэн Сяопина, Республика Татарстан, Россия")
+    if (
+        "PANATTONI" in upper
+        and "BRNO" in upper
+        and ("AIRPORT" in upper or "SINCLAIR" in upper or "TUŘANY" in upper or "TURANY" in upper)
+    ):
+        append_candidate(candidates, "Panattoni Park Brno Airport, Letiště Brno-Tuřany 949/5, 620 00 Brno-Tuřany, Czech Republic")
+        append_candidate(candidates, "Letiště Brno-Tuřany 949/5, 620 00 Brno-Tuřany, Czech Republic")
+        append_candidate(candidates, "Evropská, 620 00 Brno-Tuřany, Czech Republic")
+        append_candidate(candidates, "Panattoni Park Brno Airport, Brno-Tuřany, Czech Republic")
     return candidates
 
     cleaned = " ".join(address.replace("\u00a0", " ").replace("\n", " ").split())
@@ -965,6 +974,19 @@ def geocode_address(address: str) -> dict[str, Any]:
             "lat": 55.59,
             "lon": 52.12,
             "countryCode": "RU",
+            "source": "known-fallback",
+            "query": tried[-1] if tried else address,
+        }
+    if (
+        "PANATTONI" in upper
+        and "BRNO" in upper
+        and ("AIRPORT" in upper or "SINCLAIR" in upper or "TUŘANY" in upper or "TURANY" in upper)
+    ):
+        return {
+            "label": "Panattoni Park Brno Airport, Letiště Brno-Tuřany 949/5, 620 00 Brno-Tuřany, Czech Republic",
+            "lat": 49.156185,
+            "lon": 16.6963522,
+            "countryCode": "CZ",
             "source": "known-fallback",
             "query": tried[-1] if tried else address,
         }
