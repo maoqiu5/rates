@@ -1,4 +1,4 @@
-const STATIC_CACHE = "rates-static-v3";
+const STATIC_CACHE = "rates-static-v4";
 const TILE_CACHE = "rates-tiles-v1";
 const STATIC_ASSETS = [
   "./",

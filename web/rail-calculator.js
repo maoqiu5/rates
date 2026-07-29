@@ -300,6 +300,46 @@
     };
   }
 
+  function summarizePredictionEvidence(marketFactors, spotRate, publicQuotePriceUsd, executionAdjustments, market) {
+    const factorSources = [];
+    (market && market.factors || []).forEach(factor => {
+      (factor.sourceIds || []).forEach(sourceId => factorSources.push(sourceId));
+    });
+    const publicSources = (marketFactors && marketFactors.sources || []).map(source => ({
+      id: source.id,
+      name: source.name,
+      url: source.url,
+      signals: source.signals || [],
+    }));
+    const uniqueFactorSources = Array.from(new Set(factorSources));
+    const hasDirectAnchor = publicQuotePriceUsd > 0;
+    const hasRateLikeSource = publicSources.some(source => /rate|tariff|price/i.test([source.id, source.name].join(' ')));
+    const evidenceLevel = hasDirectAnchor ? '高' : (hasRateLikeSource || uniqueFactorSources.length >= 4 ? '中' : '低');
+    const bandPct = hasDirectAnchor ? 0.06 : (hasRateLikeSource ? 0.10 : 0.15);
+    const sampleSources = publicSources.slice(0, 4).map(source => ({
+      id: source.id,
+      name: source.name,
+      signals: source.signals.slice(0, 2),
+    }));
+    return {
+      level: evidenceLevel,
+      bandPct: Number(bandPct.toFixed(2)),
+      sources: sampleSources,
+      sourceCount: publicSources.length,
+      factorSourceCount: uniqueFactorSources.length,
+      directAnchor: hasDirectAnchor ? {
+        priceUsd: publicQuotePriceUsd,
+        executionAdjustments: executionAdjustments || [],
+      } : null,
+      basis: hasDirectAnchor
+        ? 'public quote anchor'
+        : hasRateLikeSource
+          ? 'public tariff / market sources'
+          : 'route km model',
+      routeKm: spotRate && spotRate.routeDistanceKm || null,
+    };
+  }
+
   function anchorExecutionAdjustments(marketFactors, spotRate) {
     return (marketFactors && marketFactors.executionAdjustments || []).filter(rule =>
       rule.appliesTo === 'public_quote_anchor' &&
@@ -361,6 +401,13 @@
     const basePriceUsd = anchorPriceUsd > 0
       ? Math.max(0, Math.round(anchorPriceUsd * anchorBlendRatio + marketAdjustedPriceUsd * (1 - anchorBlendRatio)))
       : marketAdjustedPriceUsd;
+    const evidence = summarizePredictionEvidence(marketFactors, spotRate, publicQuotePriceUsd, executionAdjustments, market);
+    const priceBandPct = evidence.bandPct || 0.15;
+    const priceRangeUsd = {
+      low: Math.max(0, Math.round(basePriceUsd * (1 - priceBandPct))),
+      high: Math.max(0, Math.round(basePriceUsd * (1 + priceBandPct))),
+      bandPct: priceBandPct,
+    };
     const samplePriceUsd = spotPriceForOwnership(spotRate, ownership);
     const adjustments = [];
     if (ownership === 'COC') {
@@ -407,6 +454,8 @@
         usdPerKm: Number((basePriceUsd / route.distanceKm).toFixed(3)),
         confidence,
         validUntil: spotRateData.meta && spotRateData.meta.validUntil,
+        evidence,
+        priceRangeUsd,
       },
     };
   }

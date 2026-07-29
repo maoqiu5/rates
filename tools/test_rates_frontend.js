@@ -27,6 +27,8 @@ if (html.includes('factor: 0.98') || html.includes('factor: 1.02') || html.inclu
 if (!html.includes('公开信息采集状态')) throw new Error('supplier public source status panel missing');
 if (!html.includes('可定价依据')) throw new Error('supplier pricing evidence classification missing');
 if (!html.includes('暂无供应商实盘价')) throw new Error('supplier real-quote absence note missing');
+if (!html.includes('预测区间')) throw new Error('rail prediction range display missing');
+if (!html.includes('证据等级')) throw new Error('rail prediction evidence display missing');
 
 const inlineScripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
 inlineScripts.forEach((script, index) => new vm.Script(script, { filename: `inline-${index}.js` }));
