@@ -1,9 +1,11 @@
-const STATIC_CACHE = "rates-static-v4";
+const STATIC_CACHE = "rates-static-v5";
 const TILE_CACHE = "rates-tiles-v1";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
   "./rail-calculator.js",
+  "./cost-calculator.js",
+  "./data/rail-costs-2026-08.json",
   "./data/rail-rates-2026-07-01.json",
   "./data/rail-spot-rates-2026-05-31.json",
   "./data/rail-market-factors-2026-07.json",
