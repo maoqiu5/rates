@@ -1,0 +1,75 @@
+diff --git a/tools/test_rates_frontend.js b/tools/test_rates_frontend.js
+index 2aa55a2..d173bad 100644
+--- a/tools/test_rates_frontend.js
++++ b/tools/test_rates_frontend.js
+@@ -1,4 +1,4 @@
+-﻿const fs = require('fs');
++const fs = require('fs');
+ const vm = require('vm');
+ 
+ const html = fs.readFileSync('web/index.html', 'utf8');
+@@ -17,8 +17,10 @@ if (!html.includes("window.location.pathname.startsWith('/rates')")) throw new E
+ if (html.includes("http://127.0.0.1:8015")) throw new Error('rates frontend must not use GPS local API port');
+ if (!html.includes('./rail-calculator.js?v=')) throw new Error('rail calculator should use cache-busting version');
+ if (!html.includes('id="rail-pricing-strategy"')) throw new Error('rail pricing strategy panel missing');
+-if (!html.includes('truck-market-references')) throw new Error('truck market reference API usage missing');
+-if (!html.includes('id="truck-distance-results"')) throw new Error('full truck distance result table missing');
++if (!html.includes('Truck Freight has moved to Factsheet')) throw new Error('truck migration notice missing');
++if (!html.includes('https://brianhub.net/factsheet/')) throw new Error('truck migration link missing');
++if (html.includes('id="truck-distance-results"')) throw new Error('active truck distance result table should be removed');
++if (html.includes('id="truck-distance-form"')) throw new Error('active truck distance form should be removed');
+ if (!html.includes('id="rail-pricing-mode"')) throw new Error('rail prediction/public quote mode missing');
+ if (!html.includes('RailCalculator.buildPredictionRateData')) throw new Error('rail prediction stations should include public quote anchors');
+ if (!html.includes('function drawRailRoute')) throw new Error('rail route map renderer missing');
+diff --git a/web/index.html b/web/index.html
+index a222f8f..3a1decd 100644
+--- a/web/index.html
++++ b/web/index.html
+@@ -211,32 +211,25 @@
+           <button type="button" id="cache-map-tiles">缓存当前地图</button>
+           <span class="truck-status" id="tile-cache-status"></span>
+         </div>
+-        <section class="module-panel active" id="module-truck" aria-label="卡车派送距离实时查询">
++        <section class="module-panel active" id="module-truck" aria-label="Truck migration notice">
+           <div class="truck-panel">
+-            <div class="truck-head"><strong>卡车派送距离实时查询</strong><span id="truck-nearest">输入地址后计算各站点距离</span></div>
+-            <form class="truck-form" id="truck-distance-form">
+-              <input id="truck-address-input" value="JUD. BRASOV, ORS.GHIMBAV, Str. Hermann Oberth, Nr.23, Hala5, locatia 1, Romania" autocomplete="off" placeholder="输入收货地址，或输入坐标：45.6877, 25.51944">
+-              <label for="truck-return-station">还空地
+-                <select id="truck-return-station">
+-                  <option value="">不还空</option>
+-                </select>
+-              </label>
+-              <div class="truck-station-group" id="truck-station-group" role="group" aria-label="站点区域">
+-                <span>站点区域</span>
+-                <button type="button" data-station-group="auto" aria-pressed="true">自动</button>
+-                <button type="button" data-station-group="europe" aria-pressed="false">欧洲</button>
+-                <button type="button" data-station-group="central_asia" aria-pressed="false">中亚</button>
+-                <button type="button" data-station-group="russia" aria-pressed="false">俄罗斯</button>
+-                <button type="button" data-station-group="belarus" aria-pressed="false">白罗斯</button>
++            <div class="truck-head"><strong>Truck Freight has moved to Factsheet</strong><span id="truck-nearest">Please use the new customer portal</span></div>
++            <div class="truck-market-reference active">
++              <b>English:</b> Truck freight query, bilingual switching, and map routing now live in <a href="https://brianhub.net/factsheet/">CIMC Westbound Rail Rate</a>.
++              <br><b>???</b> ???????????????????? <a href="https://brianhub.net/factsheet/">factsheet</a>?
++            </div>
++            <div class="truck-freight-breakdown active">
++              <strong>Closure note</strong>
++              <div class="truck-breakdown-grid">
++                <span><b>Truck query</b><em>Moved to factsheet</em></span>
++                <span><b>Language switch</b><em>Available in factsheet</em></span>
++                <span><b>Route map</b><em>Available in factsheet</em></span>
++                <span><b>Price maintenance</b><em>Admin only in factsheet</em></span>
+               </div>
+-              <button id="truck-distance-button" type="submit">计算距离</button>
+-              <span class="truck-status" id="truck-distance-status"></span>
+-            </form>
+-            <div class="truck-market-reference" id="truck-market-reference"></div>
+-            <div class="truck-freight-breakdown" id="truck-freight-breakdown"></div>
+-            <div class="truck-table-wrap"><table class="truck-table"><thead><tr><th>#</th><th>站点</th><th>公里</th><th>时间</th><th>卡车运费</th></tr></thead><tbody id="truck-distance-results"></tbody></table></div>
++            </div>
+           </div>
+         </section>
++
+         <section class="module-panel" id="module-market" aria-label="卡车市场参考">
+           <div class="truck-panel">
+             <div class="truck-head"><strong>市场参考</strong><span id="market-reference-status">读取公开来源与待接入报价源</span></div>

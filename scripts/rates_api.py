@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import re
 import sqlite3
 from datetime import datetime, timezone
@@ -31,6 +32,7 @@ TRUCK_FREIGHT_BASE_EUR = 120.0
 TRUCK_FREIGHT_EUR_PER_KM = 1.42
 TRUCK_FREIGHT_MIN_EUR = 450.0
 HTTP_USER_AGENT = "BrianHubRates/1.0 (truck-distance; https://brianhub.net/rates)"
+USE_OSRM_BY_DEFAULT = os.name != "nt"
 TRUCK_FREIGHT_DISTANCE_BANDS = [
     (100, 3.20),
     (250, 2.35),
@@ -946,7 +948,10 @@ def geocode_address(address: str) -> dict[str, Any]:
     for candidate in truck_geocode_candidates(address):
         tried.append(candidate)
         query = urlencode({"format": "jsonv2", "limit": "1", "q": candidate, "addressdetails": "1"})
-        data = http_json(f"https://nominatim.openstreetmap.org/search?{query}", timeout=18.0)
+        try:
+            data = http_json(f"https://nominatim.openstreetmap.org/search?{query}", timeout=18.0)
+        except Exception:
+            continue
         if isinstance(data, list) and data:
             item = data[0]
             return {
@@ -959,6 +964,11 @@ def geocode_address(address: str) -> dict[str, Any]:
             }
 
     upper = address.upper()
+    known_city = known_address_destination(address)
+    if known_city:
+        known_city.setdefault("source", "known-address")
+        known_city.setdefault("query", tried[-1] if tried else address)
+        return known_city
     if "GHIMBAV" in upper and "HERMANN OBERTH" in upper:
         return {
             "label": "Strada Hermann Oberth 23, Ghimbav, Brasov, Romania",
@@ -991,6 +1001,33 @@ def geocode_address(address: str) -> dict[str, Any]:
             "query": tried[-1] if tried else address,
         }
     raise ValueError("address not found")
+
+
+def known_address_destination(address: str) -> dict[str, Any] | None:
+    normalized = str(address or "").strip().lower()
+    if not normalized:
+        return None
+    known = [
+        ("milano", 45.4642, 9.1900, "IT"),
+        ("milan", 45.4642, 9.1900, "IT"),
+        ("budapest", 47.4979, 19.0402, "HU"),
+        ("london", 51.5072, -0.1276, "GB"),
+        ("tilbury", 51.4624, 0.3585, "GB"),
+        ("duisburg", 51.4344, 6.7623, "DE"),
+        ("hamburg", 53.5511, 9.9937, "DE"),
+        ("prague", 50.0755, 14.4378, "CZ"),
+        ("praha", 50.0755, 14.4378, "CZ"),
+        ("barcelona", 41.3874, 2.1686, "ES"),
+        ("warsaw", 52.2297, 21.0122, "PL"),
+        ("warszawa", 52.2297, 21.0122, "PL"),
+        ("katowice", 50.2649, 19.0238, "PL"),
+        ("tallinn", 59.4370, 24.7536, "EE"),
+        ("brasov", 45.6427, 25.5887, "RO"),
+    ]
+    for keyword, lat, lon, country_code in known:
+        if keyword in normalized:
+            return {"label": address, "lat": lat, "lon": lon, "countryCode": country_code, "source": "known-address"}
+    return None
 
 
 def build_truck_distance_fallback(
@@ -1085,6 +1122,9 @@ def calculate_truck_distances(
     active_stations = stations or TRUCK_STATIONS
     if return_station is None:
         return_station = find_truck_station(return_station_slug, active_stations)
+    use_osrm = os.environ.get("RATES_USE_OSRM", "1" if USE_OSRM_BY_DEFAULT else "0") == "1"
+    if not use_osrm:
+        return build_truck_distance_fallback(destination, return_station, active_stations, freight_rules)
     results: list[dict[str, Any]] = []
     for station in active_stations:
         try:
